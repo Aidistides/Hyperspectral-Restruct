@@ -11,7 +11,48 @@ This work implements a **Convolutional Neural Network (CNN)** architecture optim
 Soil systems progress through distinct health stages characterized by shifting reflectance patterns across visible, near-infrared (NIR), and short-wave infrared (SWIR) bands. These transitions are particularly evident in regions affected by legacy agrochemicals, heavy metals, PFAs, glyphosate residues, and microbial imbalances.
 
 HSI captures these stages through high-dimensional reflectance vectors, providing an indirect but reliable measure of chemical and biological activity. Research has demonstrated strong correlations between specific spectral features and soil contaminants, nutrient profiles, and ecological restoration potential.
+### Microplastics Detection
 
+Microplastics (MPs, particles <5 mm) are among the fastest-growing and most insidious soil contaminants worldwide. They originate from plastic mulch degradation, biosolids application, tire wear, atmospheric deposition, and irrigation water. Once in soil they alter microbial communities, reduce water retention, impair root growth, and enter the food chain, directly threatening regenerative agriculture and long-term soil health.
+
+Our 400–2500 nm hyperspectral pipeline is exceptionally well-suited for non-invasive MP detection from UAV platforms. While visible and near-infrared (VNIR, 400–1000 nm) can only provide limited discrimination, the **short-wave infrared (SWIR, 1000–2500 nm)** region captures the diagnostic overtone and combination absorption bands of synthetic polymers that are absent in natural soil matrices.
+
+#### Key Spectral Signatures
+Common polymers exhibit distinct C–H, C–O, and C=O vibrational features:
+
+- **Polyethylene (PE)**: strong first-overtone C–H bands at ~1720–1760 nm and second-overtone features near 1210 nm  
+- **Polypropylene (PP)**: characteristic absorption around 1150–1200 nm and 1700 nm  
+- **Polyamide (PA), Polystyrene (PS), PET**: additional aromatic C–H and carbonyl features between 1600–1900 nm and 2100–2300 nm  
+
+These narrow, polymer-specific absorption valleys contrast sharply with the broad, relatively featureless spectra of mineral-dominated soils and organic matter.
+
+Recent laboratory SWIR-HSI studies (using MCT sensors covering 1000–2500 nm) have demonstrated detection of PE, PP, and PA microplastics at concentrations as low as **0.01 wt%**, with overall classification accuracies >93 % when coupled with modern machine-learning models. Our 3D CNN architecture naturally exploits both the **full spectral depth** (capturing these subtle absorption patterns across all ~200 bands) and the **spatial context** (fragment size, shape, and clustering) within a single forward pass. The 3×3×B kernels learn exactly the spectral-spatial signatures that distinguish MP hotspots from background soil variability, even under realistic UAV conditions such as varying illumination and partial pixel mixing.
+
+By integrating microplastic mapping into the same end-to-end pipeline used for heavy-metal, PFAS, and glyphosate detection, the model delivers unified “soil health + contamination” cubes. These outputs directly support:
+- Targeted phytoremediation planning
+- Regenerative supply-chain verification
+- Tokenized land-valuation models that reward MP-free, high-integrity soil
+
+Future multi-modal fusion (HSI + XRF + microbiome data) will further refine sub-pixel quantification and polymer typing, enabling the first scalable, drone-based microplastic monitoring system for regenerative agriculture.
+
+#### Diagnostic Absorption Bands
+
+The model is trained to detect the following characteristic SWIR absorption features of common microplastic polymers:
+
+**Polyethylene (PE)**  
+\[
+\lambda_{\text{PE}} \approx 1210\,\text{nm} \quad (\text{C-H 2nd overtone}), \quad 1725{-}1760\,\text{nm} \quad (\text{C-H 1st overtone})
+\]
+
+**Polypropylene (PP)**  
+\[
+\lambda_{\text{PP}} \approx 1155{-}1200\,\text{nm}, \quad 1700{-}1735\,\text{nm}
+\]
+
+**Polystyrene (PS) and Polyethylene Terephthalate (PET)**  
+\[
+\lambda \approx 1600{-}1750\,\text{nm}, \quad 2100{-}2350\,\text{nm} \quad (\text{aromatic C-H + C=O combinations})
+\]
 ### Methods
 Our implementation addresses two core challenges: extracting meaningful patterns from complex high-dimensional HSI cubes and developing architectures capable of learning from these patterns. This section outlines our approach in three parts: data preprocessing implementation, HSI-specific augmentation strategies, and spectral-aware CNN architecture design.
 
