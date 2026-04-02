@@ -1,4 +1,4 @@
-**Hyperspectral Soil Spectrum**
+* Hyperspectral Soil Spectrum 
 **Enotrium // (Enotrium AIP 2025)**
 
 
