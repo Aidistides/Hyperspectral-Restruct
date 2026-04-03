@@ -2,6 +2,8 @@ import argparse
 import numpy as np
 import joblib
 
+from hyperspectral_soil.deep_learning import SpectralCNN, DLTrainer
+
 from sklearn.model_selection import train_test_split, cross_val_score
 
 from hyperspectral_soil.models import (
@@ -34,6 +36,8 @@ def get_model(name, input_dim=None):
         return XGBoostModel()
     elif name == "nn":
         return NeuralNetModel(input_dim=input_dim)
+    elif name == "cnn":
+        return "cnn"  # special case
     else:
         raise ValueError(f"Unknown model: {name}")
 
@@ -63,6 +67,25 @@ def main():
     # Select model
     model = get_model(args.model, input_dim=X.shape[1])
 
+        # ------------------------
+    # CNN special case
+    # ------------------------
+    if args.model == "cnn":
+        model = SpectralCNN(input_length=X.shape[1])
+        trainer = DLTrainer(model)
+
+        trainer.fit(X_train, y_train)
+        preds = trainer.predict(X_test)
+
+        from sklearn.metrics import mean_squared_error, r2_score
+
+        print({
+            "RMSE": mean_squared_error(y_test, preds, squared=False),
+            "R2": r2_score(y_test, preds)
+        })
+
+        return
+        
     # ------------------------
     # Cross-validation
     # ------------------------
