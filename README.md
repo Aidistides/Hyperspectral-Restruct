@@ -69,6 +69,24 @@ Our implementation uses a three-stage preprocessing approach optimized for spect
 
 where \( S \) performs dimension validation, \( R \) applies spatial resizing, and \( N \) implements spectral normalization.
 
+## Usage
+
+from hyperspectral_soil.preprocessing import PreprocessingPipeline
+
+pipeline = PreprocessingPipeline(
+    smoothing=True,
+    normalization="snv",
+    continuum=True,
+    wavelength_range=(400, 2500)
+)
+
+X_processed, wavelengths = pipeline.transform(X, wavelengths)
+
+### Preprocessing hyperspectral data
+Raw spectra → Smoothing → Continuum Removal → Normalization → Filtered spectra
+
+
+
 #### Dimension Validation
 HSI acquisitions vary in spatial and spectral dimensionality. Our validation ensures consistent cube shape while preserving full spectral information:
 
