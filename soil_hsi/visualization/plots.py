@@ -10,3 +10,6 @@ def plot_spectrum(wavelengths, spectra, sample_id):
     plt.ylabel("Reflectance")
     plt.title(f"Spectrum - Sample {sample_id}")
     plt.show()
+
+
+#plot_spectrum(wavelengths, spectra, sample_id=0)
