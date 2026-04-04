@@ -157,9 +157,26 @@ def train(cfg: dict):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on: {device}")
 
-    # Replace with real paths / labels
-    data_paths: list = [...]
-    labels:     list = [...]
+   # soil_hsi/train.py
+
+# ... your existing imports ...
+
+# Add these
+from datasets.hyperspectral_soil import HyperspectralSoilDataset, get_dataloaders
+# or: from soil_hsi.datasets.hyperspectral_soil import ...
+
+# Example usage (adjust paths to where you actually put the data)
+train_loader, val_loader = get_dataloaders(
+    train_dir="data/train/patches",           # ← change to your folder
+    train_label_file="data/train/labels.csv", # ← recommended
+    val_dir="data/val/patches",
+    val_label_file="data/val/labels.csv",
+    batch_size=16,                            # start small if patches are large
+    num_workers=4,
+    transform=None,   # ← put your PreprocessingPipeline(...) here when ready
+)
+
+print(f"Train batches: {len(train_loader)}")
 
     train_paths, val_paths, train_lbl, val_lbl = train_test_split(
         data_paths, labels, test_size=0.2, random_state=42
