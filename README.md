@@ -219,3 +219,60 @@ UAV HSI data from varying flight conditions is volatile to work with, and relian
 Future work should expand beyond single-drone HSI to incorporate the full spectrum of ground-truth signals identified in the whitepaper (portable XRF, soil microbiome sequencing, IoT sensor arrays). This multi-modal approach, combined with the CNN backbone and zero-knowledge proofs, could enable Enotrium’s platform to deliver privacy-preserving, verifiable land valuation and supply-chain transparency at continental scale — turning degraded soil into a self-generating, data-rich economic asset.
 
 
+
+
+
+
+
+## Data Appendix 1: Recommended Public Hyperspectral Soil Datasets
+
+The following datasets are ideal starting points for testing the preprocessing pipeline, training the 3D CNN, and validating soil-health / contaminant-detection results. All are provided in native hyperspectral formats (ENVI .hdr + binary, multi-band GeoTIFF, or sensor-native cubes) and are explicitly soil-focused.
+
+### 1. Munsell Soil Color Chart Hyperspectral Dataset (Best starting point — pure soil color reference)
+**Description**: Hyperspectral images (full scenes + cropped 20×20 voxel chips) of the Munsell Soil Color Chart, captured with a SPECIM IQ camera. 204 bands (397–1003 nm reflectance). Ideal for soil classification, color analysis, and calibration benchmarks. Includes endmember spectral libraries.
+
+**Format**: Native ENVI standard (.hdr header + binary data file).
+
+**Sizes**:
+- `chips.zip` (~68 MB — perfect for quick testing and repo inclusion)
+- `whole.zip` (~2.1 GB — use Git LFS or host separately)
+- `endmembers.zip` (~328 KB)
+
+**Download**: Direct from Zenodo — [whole.zip](https://zenodo.org/records/8143355/files/whole.zip), [chips.zip](https://zenodo.org/records/8143355/files/chips.zip), [endmembers.zip](https://zenodo.org/records/8143355/files/endmembers.zip).  
+**DOI**: 10.5281/zenodo.8143355 (CC license — please cite in your repo).
+
+**Why it fits**: Explicitly soil-related, small-to-medium files, ready-to-use ENVI cubes.
+
+### 2. Database of Hyperspectral Images of Phosphorus in Soil (Lab-based soil sample cubes)
+**Description**: 152 prepared soil samples with hyperspectral cubes for total phosphorus quantification. VIS-NIR range (420–1000 nm, 145 bands). Push-broom sensor data (Bayspec OCIF Series) as full image cubes per sample.
+
+**Format**: Hyperspectral cubes (organized as per-sample image sets within ZIPs). Native cube format from the sensor.
+
+**Size**: Multiple ZIPs (~200 MB each, total ~3 GB). Includes chemical properties XLSX (metadata only).
+
+**Download**: Mendeley Data → [Download All (Version 3)](https://data.mendeley.com/datasets/...) (free).
+
+**Why it fits**: Direct lab imaging of real soil samples — core soil chemistry application.
+
+### 3. Indian Pines AVIRIS Dataset (Site 3) (Field-scale soil/agriculture imaging)
+**Description**: Classic 220-band AVIRIS airborne hyperspectral scene (June 1992) over Purdue Agronomy farm fields (explicitly for soils research, residue cover, agriculture/soil mapping). ~2-mile × 2-mile area at ~20 m resolution.
+
+**Format**: Multi-band GeoTIFF (.tif) stacks + supporting files.
+
+**Download**: Purdue University Research Repository (PURR) → `19920612_AVIRIS_IndianPine_Site3.tif` and related flight-line TIFFs. Includes reference PDFs/txt for calibration.
+
+**Why it fits**: Real remote-sensing hyperspectral cube over soil-dominated agricultural terrain (bare soil + residue). Widely used but available in native TIFF.
+
+### Additional Strong Option: HYPERVIEW2 Patches
+**Description**: Compact airborne hyperspectral patches (150 bands, ~462–938 nm, ~3.2 nm resolution) captured over Polish agricultural fields with a HySpex VS-725 sensor. Each patch is paired with in-situ lab analysis (K₂O, P₂O₅, Mg, pH).
+
+**Size**: ~312 MB total.  
+**Format note**: Public version is .npz + .csv; we recommend converting patches to native ENVI .hdr + binary or multi-band GeoTIFF before inclusion (preserves exact data while staying tool-compatible with QGIS, GDAL, rasterio, spectral.py, etc.).
+
+**Why it fits**: Lightweight, real field data directly tied to measurable soil parameters — excellent for lightweight repo examples.
+
+---
+
+**Not recommended**: Karlsruhe soil moisture dataset (only tabular point spectra, no spatial image cubes).
+
+Other soil-specific ENVI libraries can be exported from SPECCHIO (specchio.ch) or found by searching Zenodo/Mendeley for “soil hyperspectral ENVI”.
