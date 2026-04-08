@@ -1,0 +1,12 @@
+*.npy
+*.bsq
+*.bil
+*.bip
+*.hdr
+*.pth
+*.pt
+__pycache__/
+.ipynb_checkpoints/
+data/
+outputs/
+runs/
