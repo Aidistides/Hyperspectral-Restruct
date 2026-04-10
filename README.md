@@ -1,6 +1,11 @@
 *Hyperspectral Soil Spectrum*
 **Enotrium // (Enotrium AIP 2025)**
 
+# Hyperspectral CNN for soil chemistry prediction.
+
+### This system processes drone-captured spectral data to estimate soil composition
+and is deployed in Enotrium’s pipeline to contract farms and optimize crop economics.
+
 ## Deployment
 - Integrated with drone-based hyperspectral imaging system  
 - Used in MD commercial farm contracting workflows  
