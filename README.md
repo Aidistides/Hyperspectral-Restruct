@@ -1,12 +1,22 @@
 *Hyperspectral Soil Spectrum*
 **Enotrium // (Enotrium AIP 2025)**
-
+ 
 # Hyperspectral CNN for soil chemistry prediction.
 
 ### This system processes drone-captured spectral data to estimate soil composition
 and is deployed in Enotrium’s pipeline to contract farms and optimize crop economics.
 
-## Why soil matters
+## Abstract
+
+This pipeline converts raw spectral data into actionable soil intelligence.
+
+Instead of sampling soil manually, we:
+- scan entire fields using UAV hyperspectral imaging
+- reconstruct chemical and biological properties from spectral signatures
+- generate maps that directly inform agricultural and industrial decisions
+- track seed residuals for phenotyping genomic data
+
+The output is a layer over land use and input economics.
 
 Soil chemistry determines crop yield and input costs.
 By predicting soil conditions at scale, we can:
@@ -24,6 +34,49 @@ By predicting soil conditions at scale, we can:
 As is obvious, current artificial intelligence approaches to environmental monitoring rely heavily on low-dimensional RGB or multispectral indices such as NDVI. Human perception of soil health operates as a fundamentally subjective and limited experience — we cannot directly observe the hundreds of spectral reflectance bands that encode contamination profiles, microbial activity, nutrient density, and CO₂ sequestration capacity. We’ve utilized publicly available UAV hyperspectral imaging (HSI) datasets and simulated drone-captured reflectance cubes to demonstrate that spectral activation patterns contain rich diagnostic information that can inform precise phytoremediation, land valuation, and regenerative supply-chain transparency.
 
 This work implements a **Convolutional Neural Network (CNN)** architecture optimized for soil health classification and contaminant mapping from UAV HSI data. While HSI presents known limitations in atmospheric interference and the need for ground-truth calibration, deep learning architectures may be able to extract subtle spectral-spatial patterns that traditional analysis methods miss.
+
+### System Architecture Flow 
+
+        ┌──────────────────────────────┐
+        │   UAV Drone (HSI Sensor)     │
+        │ 400–2500 nm Spectral Capture │
+        └──────────────┬───────────────┘
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │ Hyperspectral Data Cube      │
+        │ (x, y, λ) ~ 200+ bands       │
+        └──────────────┬───────────────┘
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │ Preprocessing Pipeline       │
+        │ - Smoothing                 │
+        │ - Continuum Removal         │
+        │ - Normalization             │
+        └──────────────┬───────────────┘
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │ 3D CNN Model                 │
+        │ Spectral-Spatial Learning    │
+        └──────────────┬───────────────┘
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │ Soil Prediction Maps         │
+        │ - DNN:Nutrients (N, C)       │
+        │ - Contaminants (PFAS, MPs)   │
+        │ - Moisture / Structure       │
+        └──────────────┬───────────────┘
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │ Field-Level Decisions        │
+        │ - Land valuation             │
+        │ - Crop selection             │
+        │ - Remediation targeting      │
+        └──────────────────────────────┘
 
 ### Theoretical Framework
 #### Spectral Signatures of Soil Health Stages
@@ -59,19 +112,14 @@ Future multi-modal fusion (HSI + XRF + microbiome data) will further refine sub-
 The model is trained to detect the following characteristic SWIR absorption features of common microplastic polymers:
 
 **Polyethylene (PE)**  
-\[
-\lambda_{\text{PE}} \approx 1210\,\text{nm} \quad (\text{C-H 2nd overtone}), \quad 1725{-}1760\,\text{nm} \quad (\text{C-H 1st overtone})
-\]
+\[\lambda_{\text{PE}} \approx 1210\,\text{nm} \quad (\text{C-H 2nd overtone}), \quad 1725{-}1760\,\text{nm} \quad (\text{C-H 1st overtone})\]
 
 **Polypropylene (PP)**  
-\[
-\lambda_{\text{PP}} \approx 1155{-}1200\,\text{nm}, \quad 1700{-}1735\,\text{nm}
-\]
+\[\lambda_{\text{PP}} \approx 1155{-}1200\,\text{nm}, \quad 1700{-}1735\,\text{nm}\]
 
 **Polystyrene (PS) and Polyethylene Terephthalate (PET)**  
-\[
-\lambda \approx 1600{-}1750\,\text{nm}, \quad 2100{-}2350\,\text{nm} \quad (\text{aromatic C-H + C=O combinations})
-\]
+\[\lambda \approx 1600{-}1750\,\text{nm}, \quad 2100{-}2350\,\text{nm} \quad (\text{aromatic C-H + C=O combinations})\]
+
 ### Methods
 Our implementation addresses two core challenges: extracting meaningful patterns from complex high-dimensional HSI cubes and developing architectures capable of learning from these patterns. This section outlines our approach in three parts: data preprocessing implementation, HSI-specific augmentation strategies, and spectral-aware CNN architecture design.
 
@@ -81,9 +129,7 @@ The implementation utilizes hyperspectral reflectance cubes collected via UAV dr
 **Preprocessing Pipeline**  
 Our implementation uses a three-stage preprocessing approach optimized for spectral pattern preservation:
 
-\[
-\text{Preprocess}(I) = N\left(R\left(S(I)\right)\right)
-\]
+\[\text{Preprocess}(I) = N\left(R\left(S(I)\right)\right)\]
 
 where \( S \) performs dimension validation, \( R \) applies spatial resizing, and \( N \) implements spectral normalization.
 
@@ -102,18 +148,17 @@ Mean reflectance captures overall soil brightness, while the standard deviation 
 The pipeline also computes the following widely adopted hyperspectral indices. These serve both as interpretable features for downstream analysis and as strong baselines against which the 3D CNN’s learned spectral-spatial patterns are evaluated:
 
 **NDVI** (Normalized Difference Vegetation Index)  
+
 Indexes density and health of vegetation/foliage. Healthy foliage strongly absorbs red light.  
-\[
-\text{NDVI} = \frac{R_{\text{NIR}} - R_{\text{Red}}}{R_{\text{NIR}} + R_{\text{Red}}}
-\]
+\[\text{NDVI} = \frac{R_{\text{NIR}} - R_{\text{Red}}}{R_{\text{NIR}} + R_{\text{Red}}}\]
 
 **Red-edge slope and position**  
 The “red edge” marks the sharp transition from strong absorption in the red to high reflectance in the NIR. Both the slope and the wavelength of the inflection point are sensitive indicators of foliage vitality and stress.
 
 **NDWI** (Normalized Difference Water Index)  
-\[
-\text{NDWI} = \frac{R_{860} - R_{1240}}{R_{860} + R_{1240}}
-\]  
+
+\[\text{NDWI} = \frac{R_{860} - R_{1240}}{R_{860} + R_{1240}}\]  
+
 Higher NDWI values indicate greater surface water content. It also serves as a proxy for electrical conductivity, contaminant transport potential, and redox-sensitive metal mobility.
 
 **NIR/SWIR ratio** (860 nm / 1610 nm)  
@@ -185,18 +230,14 @@ Our architecture is a CNN tailored for hyperspectral cubes as detailed in the En
 **Convolution Operation**  
 Each pixel in the HSI cube is treated as a high-dimensional reflectance vector \( \mathbf{r} \in \mathbb{R}^{B} \) (typically \( B \approx 200 \) bands). A 3D kernel \( K \) of size \( 3 \times 3 \times B \) is convolved across the cube. The output feature value at spatial location \( (i,j) \) for a given kernel is computed via dot product:
 
-\[
-f(i,j) = \sum_{m=-1}^{1} \sum_{n=-1}^{1} \sum_{b=1}^{B} I(i+m, j+n, b) \cdot K(m, n, b)
-\]
+\[f(i,j) = \sum_{m=-1}^{1} \sum_{n=-1}^{1} \sum_{b=1}^{B} I(i+m, j+n, b) \cdot K(m, n, b)\]
 
 Multiple kernels produce a stack of feature maps \( F \in \mathbb{R}^{h \times w \times C} \), where \( C \) is the number of output channels. Subsequent layers apply further convolutions, batch normalization, and GELU activations.
 
 **Regularization – Dropout**  
 We apply spatial dropout for hyperspectral feature maps to combat overfitting in high-dimensional spectral space. For a feature map tensor \( F \in \mathbb{R}^{h \times w \times C} \):
 
-\[
-F_{\text{drop}}(i,j,c) = F(i,j,c) \cdot M_c \quad \text{where} \quad M_c \sim \text{Bernoulli}(p)
-\]
+\[F_{\text{drop}}(i,j,c) = F(i,j,c) \cdot M_c \quad \text{where} \quad M_c \sim \text{Bernoulli}(p)\]
 
 (with \( p \) increasing with network depth). This forces the model to learn distributed spectral-spatial patterns rather than relying on any single band or pixel region.
 
@@ -230,6 +271,29 @@ Feature map visualizations reveal characteristic spectral signatures (e.g., SWIR
 
 **Classification Reliability Analysis**  
 High confidence on clean/remediated land and early-warning contamination alerts; calibrated predictions support zero-knowledge proof verification for supply-chain transparency.
+
+## Model Summary 
+
+Spectral Cube (x, y, λ)
+        │
+        ▼
+[3D Convolution Layer]
+        │
+        ▼
+[Spectral-Spatial Feature Maps]
+        │
+        ▼
+[Deep CNN Blocks + Dropout]
+        │
+        ▼
+[Channel Reduction]
+        │
+        ▼
+[Prediction Head]
+        │
+        ▼
+Soil Property Outputs
+
 
 ### Questions
 UAV HSI data from varying flight conditions is volatile to work with, and reliance on multi-source datasets without perfectly standardized calibration certainly doesn’t help. Nonetheless the above-benchmark results suggest a strong correlation worth scaling, indicating that integrating hyperspectral reflectance data into OrpheusAI provides essential insights into soil biology and chemistry for regenerative economics.
@@ -287,7 +351,7 @@ The following datasets are ideal starting points for testing the preprocessing p
 **Size**: ~312 MB total.  
 **Format note**: Public version is .npz + .csv; we recommend converting patches to native ENVI .hdr + binary or multi-band GeoTIFF before inclusion (preserves exact data while staying tool-compatible with QGIS, GDAL, rasterio, spectral.py, etc.).
 
-**Why it fits**: Lightweight, real field data directly tied to measurable soil parameters — excellent for lightweight repo examples.
+**Edge**: Lightweight, real field data directly tied to measurable soil parameters — excellent for lightweight repo examples.
 
 ---
 
