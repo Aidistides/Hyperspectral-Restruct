@@ -6,6 +6,14 @@
 ### This system processes drone-captured spectral data to estimate soil composition
 and is deployed in Enotrium’s pipeline to contract farms and optimize crop economics.
 
+## Why soil matters
+
+Soil chemistry determines crop yield and input costs.
+By predicting soil conditions at scale, we can:
+- contract farms based on expected output
+- optimize hemp production
+- control downstream material tensile stregnth
+
 ## Deployment
 - Integrated with drone-based hyperspectral imaging system  
 - Used in MD commercial farm contracting workflows  
