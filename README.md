@@ -274,25 +274,25 @@ High confidence on clean/remediated land and early-warning contamination alerts;
 
 ## Model Summary 
 
-Spectral Cube (x, y, λ)
-        │
-        ▼
-[3D Convolution Layer]
-        │
-        ▼
-[Spectral-Spatial Feature Maps]
-        │
-        ▼
-[Deep CNN Blocks + Dropout]
-        │
-        ▼
-[Channel Reduction]
-        │
-        ▼
-[Prediction Head]
-        │
-        ▼
-Soil Property Outputs
+#### Spectral Cube (x, y, λ)
+          │
+          ▼
+#### [3D Convolution Layer]
+          │
+          ▼
+#### [Spectral-Spatial Feature Maps]
+          │
+          ▼
+#### [Deep CNN Blocks + Dropout]
+          │
+          ▼
+#### [Channel Reduction]
+          │
+          ▼
+#### [Prediction Head]
+          │
+          ▼
+#### Soil Property Outputs
 
 
 ### Questions
