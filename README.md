@@ -3,7 +3,21 @@
  
 # Hyperspectral CNN for soil chemistry prediction.
 
-### We use hyperspectral drones to predict soil chemistry instantly. This data determines what gets grown, contracted, and turned into industrial materials. The Icarus Model processes drone-captured spectral data to estimate soil composition and is deployed in Enotrium’s pipeline to contract farms and optimize cash crop economics.
+### Use hyperspectral drones to predict soil chemistry instantly. This data determines what gets grown, contracted, and turned into industrial materials. The Icarus Model processes drone-captured spectral data to estimate soil composition and is deployed in Enotrium’s pipeline to contract farms and optimize cash crop economics.
+
+# Icarus
+Drone + Hyperspectral Imaging (HSI) - Remote sensing &amp; verification layer
+
+**Eyes Down. Soil Aalytes.**  
+Autonomous hyperspectral remote sensing & AI verification layer for regenerative agriculture and national-security-grade feedstock assurance.
+
+## Core Capabilities
+- UAV/drone hyperspectral imaging (400–2500 nm, SWIR focus)
+- 3D DNN models for contaminant detection (microplastics, heavy metals, PFAS, glyphosate, etc.)
+- Phytoremediation mapping & soil health scoring
+- Real-time verification for traceable, contaminant-free bio-materials
+- Edge/offline deployment for austere environments
+- Direct integration with AIP0 (zk-secured provenance) and Bioverge (feedstock qualification)
 
 ## Abstract
 
