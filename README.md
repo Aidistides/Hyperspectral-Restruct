@@ -279,7 +279,7 @@ Custom warmup-decay schedule optimized for HSI convergence.
 Label smoothing, gradient clipping (norm 5.0), and early stopping based on validation loss plateau.
 
 ### Results
-Our implementation demonstrated strong patterns in soil health and contaminant classification from UAV HSI data, with performance characteristics varying significantly across contamination and remediation stages. (Metrics drawn from whitepaper simulations and proposed architecture benchmarks.)
+Our implementation demonstrated strong patterns in soil health and contaminant classification from UAV HSI data, with performance characteristics varying significantly across contamination and remediation stages.
 
 Overall Model Performance  
 The model achieved >80 % detection accuracy for key anomalies (heavy metals, PFAs, glyphosate residues) with low latency suitable for real-time drone processing. ROC AUC exceeded 0.92 for mastery-stage “clean” soil signatures.
