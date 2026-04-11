@@ -29,7 +29,6 @@ Tested on mixed bare-soil + vegetation datasets with ground-truth lab validation
 
 #### 1. False-color N + SOC map — a dual-channel false-color composite of the Maryland pilot field, with teal–green encoding nitrogen intensity (1478 nm N-H band) and purple overlay showing SOC patches (1650–1700 nm), complete with crop row lines, sample point markers, and per-target R²/RMSE callouts.
 
-![False-color N and SOC map from Maryland commercial farm pilot](HyperspectralRestruct/Results_visuals/false_color_soil_N_SOC_map.svg)
 
 
 ### Use Highlights 
