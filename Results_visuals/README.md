@@ -7,7 +7,7 @@ All models use 3D CNN + SPA/MC-UVE feature selection (12–18 SWIR-dominant band
 
 ## 1. False-color Soil-N + SOC Map — Maryland Commercial Farm Pilot
 
-![False-color soil nitrogen and SOC map from Maryland commercial farm pilot](false_color_soil_N_SOC_map.svg)
+![False-color soil nitrogen and SOC map from Maryland commercial farm pilot](false_color_soil_N_SOC_map-2.svg)
 
 Dual-channel false-color composite derived from drone hyperspectral imagery.  
 Teal–green encodes soil nitrogen intensity (peak band: 1478 nm N-H/amide cluster).  
