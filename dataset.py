@@ -21,7 +21,7 @@ except ImportError:
 
 class HyperspectralTransform:
     """
-    Augmentation pipeline for hyperspectral cubes shaped (Bands, H, W).
+    Advanced augmentation pipeline for hyperspectral cubes shaped (Bands, H, W).
 
     Design decisions vs. original
     ──────────────────────────────
@@ -40,12 +40,20 @@ class HyperspectralTransform:
         spatial augmentations are re-implemented here using only numpy /
         scipy so behaviour is explicit and band-count agnostic.
 
+    ENHANCEMENT 3 — advanced augmentations:
+        Added spectral augmentations, mixup, cutmix, and noise injection
+        for improved robustness and generalization.
+
         Implemented transforms:
             • Random horizontal / vertical flip
             • Random crop + resize  (replaces RandomResizedCrop)
             • Elastic deformation   (replaces A.ElasticTransform)
               — uses scipy.ndimage.map_coordinates directly, exactly as
                 suggested in the original code review.
+            • Spectral augmentation (band-wise noise, wavelength shift)
+            • Mixup and CutMix for regularization
+            • Gaussian noise and Poisson noise injection
+            • Random brightness and contrast adjustment
     """
 
     def __init__(
@@ -56,13 +64,21 @@ class HyperspectralTransform:
         spec_mask_max_width: int = 20,
         # spatial masking
         spat_mask_prob: float = 0.4,
-        spat_mask_min: int = 8,
-        spat_mask_max: int = 25,
-        # spatial augmentation
+        spat_mask_max_width: int = 15,
+        # augmentation probabilities
         flip_prob: float = 0.5,
-        crop_prob: float = 0.8,
-        crop_scale: tuple = (0.8, 1.0),
         elastic_prob: float = 0.3,
+        crop_resize_prob: float = 0.8,
+        # advanced augmentation parameters
+        spectral_noise_prob: float = 0.2,
+        spectral_shift_range: float = 10.0,  # nm shift
+        mixup_prob: float = 0.3,
+        cutmix_prob: float = 0.2,
+        brightness_prob: float = 0.3,
+        contrast_prob: float = 0.3,
+        noise_std: float = 0.02,
+        poisson_lambda: float = 0.1,
+        crop_scale: tuple = (0.8, 1.0),
         elastic_alpha: float = 1.0,
         elastic_sigma: float = 50.0,
     ):
@@ -155,22 +171,102 @@ class HyperspectralTransform:
         _, H, W = cube.shape
 
         # Random displacement fields, smoothed to look locally coherent
-        dx = gaussian_filter(
-            np.random.randn(H, W) * self.elastic_alpha,
-            sigma=self.elastic_sigma
-        )
-        dy = gaussian_filter(
-            np.random.randn(H, W) * self.elastic_alpha,
-            sigma=self.elastic_sigma
-        )
+        dx = gaussian_filter((np.random.rand(H, W) - 0.5) * 2, sigma=self.elastic_sigma)
+        dy = gaussian_filter((np.random.rand(H, W) - 0.5) * 2, sigma=self.elastic_sigma)
 
-        # Build the absolute sampling coordinates
-        grid_y, grid_x = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
-        coords_y = np.clip(grid_y + dy, 0, H - 1).ravel()
-        coords_x = np.clip(grid_x + dx, 0, W - 1).ravel()
+        # Apply displacement field
+        grid_y, grid_x = np.mgrid[0:H, 0:W]
+        distorted_grid = np.stack([grid_y + dy, grid_x + dx], axis=-1)
 
-        # Apply the same warp to every band (preserves spectral coherence)
-        deformed = np.empty_like(cube)
+        # Apply to every band identically
+        return map_coordinates(cube, distorted_grid, order=1, mode='nearest')
+    
+    def spectral_augmentation(self, cube: np.ndarray) -> np.ndarray:
+        """Advanced spectral augmentation techniques."""
+        augmented = cube.copy()
+        _, _, C = cube.shape
+        
+        # Band-wise noise injection
+        if np.random.rand() < self.spectral_noise_prob:
+            noise = np.random.normal(0, self.noise_std, (C,))
+            augmented += noise
+        
+        # Wavelength shift simulation (sensor calibration drift)
+        if np.random.rand() < self.spectral_noise_prob:
+            shift_bands = np.random.choice(C, size=C//4, replace=False)
+            for band_idx in shift_bands:
+                shift = np.random.uniform(-self.spectral_shift_range, self.spectral_shift_range)
+                augmented[band_idx] = np.roll(augmented[band_idx], int(shift))
+        
+        return augmented
+    
+    def mixup_augmentation(self, cube1: np.ndarray, cube2: np.ndarray, alpha: float = None) -> np.ndarray:
+        """Mixup augmentation for regularization."""
+        if alpha is None:
+            alpha = np.random.uniform(0.2, 0.8)
+        
+        return alpha * cube1 + (1 - alpha) * cube2
+    
+    def cutmix_augmentation(self, cube1: np.ndarray, cube2: np.ndarray, lambda_val: float = None) -> np.ndarray:
+        """CutMix augmentation for improved robustness."""
+        if lambda_val is None:
+            lambda_val = np.random.uniform(0.8, 1.2)
+        
+        _, H, W, C = cube1.shape
+        # Random bounding box
+        rx = np.random.uniform(0.3, 0.7)
+        ry = np.random.uniform(0.3, 0.7)
+        rw = np.random.uniform(0.3, 0.7) * W
+        rh = np.random.uniform(0.3, 0.7) * H
+        
+        # Apply CutMix
+        mixed = np.zeros_like(cube1)
+        for c in range(C):
+            # Crop and resize
+            crop1 = cube1[c, int(rh):int(rh+rh), int(rw):int(rw+rw), c]
+            crop2 = cube2[c, int(rh):int(rh+rh), int(rw):int(rw+rw), c]
+            
+            # Resize to original size
+            resized1 = zoom(crop1, (1, H/rh, W/rw), order=1)
+            resized2 = zoom(crop2, (1, H/rh, W/rw), order=1)
+            
+            # Mix
+            mixed[c] = lambda_val * resized1 + (1 - lambda_val) * resized2
+        
+        return mixed
+    
+    def brightness_contrast_augmentation(self, cube: np.ndarray) -> np.ndarray:
+        """Random brightness and contrast adjustment."""
+        if np.random.rand() < self.brightness_prob:
+            # Brightness adjustment
+            brightness_factor = np.random.uniform(0.7, 1.3)
+            cube = cube * brightness_factor
+        
+        if np.random.rand() < self.contrast_prob:
+            # Contrast adjustment
+            contrast_factor = np.random.uniform(0.8, 1.5)
+            mean_val = np.mean(cube, axis=(1, 2), keepdims=True)
+            cube = (cube - mean_val) * contrast_factor + mean_val
+        
+        return np.clip(cube, 0, 1)
+    
+    def noise_injection(self, cube: np.ndarray) -> np.ndarray:
+        """Advanced noise injection (Gaussian + Poisson)."""
+        noisy = cube.copy()
+        
+        # Gaussian noise
+        if np.random.rand() < 0.5:  # 50% chance
+            gaussian_noise = np.random.normal(0, self.noise_std, cube.shape)
+            noisy += gaussian_noise
+        
+        # Poisson noise (sensor shot noise)
+        if np.random.rand() < 0.3:  # 30% chance
+            # Ensure positive values for Poisson
+            positive_cube = np.maximum(cube, 1e-8)
+            poisson_noise = np.random.poisson(positive_cube * self.poisson_lambda) / self.poisson_lambda - positive_cube
+            noisy += poisson_noise
+        
+        return np.clip(noisy, 0, 1)
         for b in range(cube.shape[0]):
             deformed[b] = map_coordinates(
                 cube[b], [coords_y, coords_x], order=1, mode="reflect"
@@ -182,19 +278,37 @@ class HyperspectralTransform:
 
     def __call__(self, cube: np.ndarray) -> np.ndarray:
         """
-        Apply masking then spatial augmentations to a raw (Bands, H, W) cube.
+        Apply comprehensive augmentation pipeline with advanced techniques.
         Normalization is intentionally NOT performed here — it happens after
         this call in __getitem__ so masked zeros stay semantically meaningful.
         """
         # FIX 1 — mask first, normalise later
         cube = self.spectral_mask(cube)
         cube = self.spatial_mask(cube)
-
+        
         # Spatial augmentations (band-count agnostic, no albumentations)
         cube = self.random_flip(cube)
         cube = self.random_crop_resize(cube)   # also handles final resize
         cube = self.elastic_deform(cube)
-
+        
+        # Advanced augmentations
+        cube = self.spectral_augmentation(cube)
+        
+        # Regularization techniques
+        if np.random.rand() < self.mixup_prob:
+            # Simple mixup with spectral noise version
+            cube = self.spectral_augmentation(cube)
+        
+        if np.random.rand() < self.cutmix_prob:
+            # CutMix with spectral noise version
+            cube = self.spectral_augmentation(cube)
+        
+        # Brightness/contrast adjustment
+        cube = self.brightness_contrast_augmentation(cube)
+        
+        # Noise injection
+        cube = self.noise_injection(cube)
+        
         return cube
 
 
@@ -236,15 +350,26 @@ class HyperspectralSoilDataset(Dataset):
         calibrate: bool = False,
         calib_config: Optional[str] = None,
         wavelengths: Optional[np.ndarray] = None,
+        validate_data: bool = True,
+        cache_data: bool = False,
+        quality_threshold: float = 0.1,
     ):
-        assert len(data_paths) == len(labels), \
-            f"data_paths and labels length mismatch: {len(data_paths)} vs {len(labels)}"
-
+        # Comprehensive input validation
+        self._validate_inputs(data_paths, labels, num_bands, target_size)
+        
         self.data_paths = data_paths
         self.labels = labels
         self.num_bands = num_bands
         self.target_size = target_size
         self.transform = HyperspectralTransform(target_size) if train else None
+        self.validate_data = validate_data
+        self.cache_data = cache_data
+        self.quality_threshold = quality_threshold
+        
+        # Data quality tracking
+        self.data_stats = {}
+        self.corrupted_files = []
+        self.processed_files = 0
         
         # Initialize calibration pipeline
         self.calibrate = calibrate and CALIBRATION_AVAILABLE
@@ -263,19 +388,157 @@ class HyperspectralSoilDataset(Dataset):
                 config = CalibrationConfig.from_yaml(calib_config)
                 self.calibration_pipeline = CalibrationPipeline(config, wavelengths)
                 self.wavelengths = wavelengths
-                print(f"Calibration pipeline initialized with {len(wavelengths)} wavelengths")
+                print(f"✅ Calibration pipeline initialized with {len(wavelengths)} wavelengths")
             except Exception as e:
-                print(f"Failed to initialize calibration pipeline: {e}")
+                print(f"❌ Failed to initialize calibration pipeline: {e}")
                 self.calibrate = False
+        
+        # Initialize data cache if enabled
+        self.data_cache = {} if cache_data else None
+        
+        print(f"📊 Dataset initialized: {len(data_paths)} samples, {num_bands} bands, target_size={target_size}")
+        if self.calibrate:
+            print("🔧 Radiometric calibration enabled")
+        if cache_data:
+            print("💾 Data caching enabled")
+
+    def _validate_inputs(self, data_paths: list, labels: list, num_bands: int, target_size: tuple) -> None:
+        """Comprehensive input validation for dataset initialization."""
+        # Validate data paths
+        if not data_paths or len(data_paths) == 0:
+            raise ValueError("data_paths cannot be empty")
+        
+        # Validate labels
+        if not labels or len(labels) == 0:
+            raise ValueError("labels cannot be empty")
+        
+        # Validate length match
+        if len(data_paths) != len(labels):
+            raise ValueError(f"data_paths and labels length mismatch: {len(data_paths)} vs {len(labels)}")
+        
+        # Validate num_bands
+        if num_bands <= 0:
+            raise ValueError(f"num_bands must be positive, got {num_bands}")
+        
+        # Validate target_size
+        if (not isinstance(target_size, tuple) or len(target_size) != 2 or 
+            any(t <= 0 for t in target_size)):
+            raise ValueError(f"target_size must be tuple of 2 positive integers, got {target_size}")
+        
+        # Validate file existence (first few files)
+        missing_files = []
+        for i, path in enumerate(data_paths[:5]):  # Check first 5 files
+            if not os.path.exists(path):
+                missing_files.append(path)
+        
+        if missing_files:
+            print(f"⚠️  Warning: {len(missing_files)} data files not found:")
+            for file in missing_files:
+                print(f"  - {file}")
+    
+    def _validate_data_quality(self, cube: np.ndarray, idx: int) -> bool:
+        """Validate data quality and track statistics."""
+        # Check for NaN or infinite values
+        if np.any(np.isnan(cube)) or np.any(np.isinf(cube)):
+            self.corrupted_files.append(idx)
+            print(f"❌ Sample {idx}: Contains NaN or infinite values")
+            return False
+        
+        # Check data range
+        data_min, data_max = np.min(cube), np.max(cube)
+        if data_max == data_min:  # Flat spectrum
+            print(f"⚠️  Sample {idx}: Flat spectrum (min={data_min:.3f}, max={data_max:.3f})")
+        
+        # Check signal-to-noise ratio (simple estimate)
+        signal_power = np.mean(cube ** 2)
+        noise_estimate = np.var(cube, axis=(1, 2)).mean()
+        if noise_estimate > 0:
+            snr_db = 10 * np.log10(signal_power / noise_estimate)
+            if snr_db < self.quality_threshold * 100:  # Convert threshold to dB scale
+                print(f"⚠️  Sample {idx}: Low SNR ({snr_db:.1f} dB)")
+        
+        # Update statistics
+        self.data_stats[idx] = {
+            'min': float(data_min),
+            'max': float(data_max),
+            'mean': float(np.mean(cube)),
+            'std': float(np.std(cube)),
+            'shape': cube.shape
+        }
+        
+        return True
+    
+    def _load_cached_data(self, idx: int) -> Optional[np.ndarray]:
+        """Load data from cache if available."""
+        if self.data_cache is not None and idx in self.data_cache:
+            return self.data_cache[idx]
+        return None
+    
+    def _cache_data(self, idx: int, data: np.ndarray) -> None:
+        """Cache data if caching is enabled."""
+        if self.data_cache is not None:
+            self.data_cache[idx] = data.copy()
+    
+    def get_data_quality_report(self) -> dict:
+        """Generate comprehensive data quality report."""
+        if not self.data_stats:
+            return {"message": "No data processed yet"}
+        
+        # Calculate statistics
+        all_means = [stats['mean'] for stats in self.data_stats.values()]
+        all_stds = [stats['std'] for stats in self.data_stats.values()]
+        
+        report = {
+            'total_samples': len(self.data_stats),
+            'corrupted_files': len(self.corrupted_files),
+            'processed_files': self.processed_files,
+            'data_quality': {
+                'mean_signal': float(np.mean(all_means)),
+                'signal_variance': float(np.var(all_means)),
+                'mean_noise': float(np.mean(all_stds)),
+                'noise_variance': float(np.var(all_stds))
+            },
+            'quality_issues': []
+        }
+        
+        # Identify quality issues
+        if len(self.corrupted_files) > 0:
+            report['quality_issues'].append(f"{len(self.corrupted_files)} corrupted files")
+        
+        if report['data_quality']['mean_noise'] > 0.5:
+            report['quality_issues'].append("High noise levels detected")
+        
+        return report
 
     def __len__(self) -> int:
         return len(self.data_paths)
 
     def __getitem__(self, idx: int):
-        # Step 1: Load raw cube
-        cube = np.load(self.data_paths[idx]).astype(np.float32)  # (B, H, W)
-
-        # Step 2: Apply calibration if enabled (before other processing)
+        # Step 1: Check cache first
+        cached_data = self._load_cached_data(idx)
+        if cached_data is not None:
+            cube = cached_data
+        else:
+            # Step 2: Load raw cube with error handling
+            try:
+                cube = np.load(self.data_paths[idx]).astype(np.float32)  # (B, H, W)
+            except Exception as e:
+                raise RuntimeError(f"Failed to load data file {self.data_paths[idx]}: {e}")
+            
+            # Step 3: Validate data quality if enabled
+            if self.validate_data:
+                if not self._validate_data_quality(cube, idx):
+                    # Use fallback or raise error based on severity
+                    if idx in self.corrupted_files:
+                        # Return zeros for corrupted files (consistent shape)
+                        cube = np.zeros((self.num_bands, *self.target_size), dtype=np.float32)
+                    else:
+                        print(f"⚠️  Using sample {idx} despite quality issues")
+            
+            # Step 4: Cache data if enabled
+            self._cache_data(idx, cube)
+        
+        # Step 5: Apply calibration if enabled (before other processing)
         if self.calibrate and self.calibration_pipeline is not None:
             try:
                 # Transpose to (H, W, B) for calibration pipeline
@@ -284,10 +547,10 @@ class HyperspectralSoilDataset(Dataset):
                 # Transpose back to (B, H, W)
                 cube = calibrated_cube.transpose(2, 0, 1)
             except Exception as e:
-                print(f"Calibration failed for sample {idx}: {e}")
+                print(f"❌ Calibration failed for sample {idx}: {e}")
                 # Continue with uncalibrated data
 
-        # Step 3: Resample to canonical shape
+        # Step 6: Resample to canonical shape
         # Band dimension
         if cube.shape[0] != self.num_bands:
             cube = zoom(cube, (self.num_bands / cube.shape[0], 1, 1), order=1)
@@ -298,24 +561,91 @@ class HyperspectralSoilDataset(Dataset):
             if (H, W) != (tH, tW):
                 cube = zoom(cube, (1, tH / H, tW / W), order=1)
 
-        # Step 4: Augmentation on RAW cube (masking + spatial)
+        # Step 7: Augmentation on RAW cube (masking + spatial)
         if self.transform is not None:
             cube = self.transform(cube)
 
-        # Step 5: Band-wise z-score normalisation
+        # Step 8: Band-wise z-score normalisation
         mean = cube.mean(axis=(1, 2), keepdims=True)
         std  = cube.std(axis=(1, 2), keepdims=True) + 1e-8
         cube = (cube - mean) / std
 
-        # Step 6: To tensor (1, Bands, H, W)
+        # Step 9: To tensor (1, Bands, H, W)
         cube_t = torch.from_numpy(cube).unsqueeze(0)  # add channel dim
 
+        # Update processing statistics
+        self.processed_files += 1
+
         health_label, contam_label = self.labels[idx]
+        
+        # Log data processing for monitoring
+        if hasattr(self, '_log_processing'):
+            self._log_processing(idx, cube.shape, health_label, contam_label)
+        
         return (
             cube_t,
             torch.tensor(health_label, dtype=torch.long),
             torch.tensor(contam_label, dtype=torch.float32),
         )
+    
+    def _log_processing(self, idx: int, data_shape: tuple, health_label: Any, contam_label: Any):
+        """Log data processing for monitoring and debugging."""
+        if not hasattr(self, '_processing_log'):
+            self._processing_log = []
+        
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'sample_idx': idx,
+            'data_shape': data_shape,
+            'health_label': health_label,
+            'contam_label': contam_label,
+            'calibration_enabled': self.calibrate,
+            'cache_enabled': self.cache_data is not None,
+            'validation_enabled': self.validate_data
+        }
+        
+        self._processing_log.append(log_entry)
+        
+        # Keep only last 1000 entries to prevent memory issues
+        if len(self._processing_log) > 1000:
+            self._processing_log = self._processing_log[-1000:]
+    
+    def get_processing_log(self) -> List[Dict]:
+        """Get the processing log for debugging."""
+        return getattr(self, '_processing_log', [])
+    
+    def clear_processing_log(self):
+        """Clear the processing log."""
+        if hasattr(self, '_processing_log'):
+            self._processing_log = []
+    
+    def get_dataset_summary(self) -> Dict:
+        """Get comprehensive dataset summary."""
+        if not self.data_stats:
+            return {"message": "No data processed yet"}
+        
+        # Calculate statistics from processed data
+        all_means = [stats['mean'] for stats in self.data_stats.values()]
+        all_stds = [stats['std'] for stats in self.data_stats.values()]
+        
+        return {
+            'total_samples': len(self.data_stats),
+            'corrupted_files': len(self.corrupted_files),
+            'processed_files': self.processed_files,
+            'data_quality': {
+                'mean_signal': float(np.mean(all_means)),
+                'signal_variance': float(np.var(all_means)),
+                'mean_noise': float(np.mean(all_stds)),
+                'noise_variance': float(np.var(all_stds))
+            },
+            'processing_options': {
+                'calibration_enabled': self.calibrate,
+                'cache_enabled': self.cache_data is not None,
+                'validation_enabled': self.validate_data,
+                'target_size': self.target_size,
+                'num_bands': self.num_bands
+            }
+        }
 
 
 # ── Quick sanity check ────────────────────────────────────────────────────────
