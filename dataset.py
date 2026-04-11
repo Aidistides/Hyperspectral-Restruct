@@ -1,11 +1,12 @@
+import os
+from datetime import datetime
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from scipy.ndimage import zoom, map_coordinates, gaussian_filter
-import numpy as np
 from pathlib import Path
 import cv2
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Any, Dict
 import warnings
 
 # Import calibration module
@@ -86,14 +87,22 @@ class HyperspectralTransform:
         self.spec_mask_prob = spec_mask_prob
         self.spec_mask_max_width = spec_mask_max_width
         self.spat_mask_prob = spat_mask_prob
-        self.spat_mask_min = spat_mask_min
-        self.spat_mask_max = spat_mask_max
+        self.spat_mask_min = 1
+        self.spat_mask_max = spat_mask_max_width
         self.flip_prob = flip_prob
-        self.crop_prob = crop_prob
+        self.crop_prob = crop_resize_prob
         self.crop_scale = crop_scale
         self.elastic_prob = elastic_prob
         self.elastic_alpha = elastic_alpha
         self.elastic_sigma = elastic_sigma
+        self.spectral_noise_prob = spectral_noise_prob
+        self.spectral_shift_range = spectral_shift_range
+        self.mixup_prob = mixup_prob
+        self.cutmix_prob = cutmix_prob
+        self.brightness_prob = brightness_prob
+        self.contrast_prob = contrast_prob
+        self.noise_std = noise_std
+        self.poisson_lambda = poisson_lambda
 
     # ── masking (called on RAW cube, before normalisation) ────────────────────
 
@@ -158,8 +167,7 @@ class HyperspectralTransform:
     def elastic_deform(self, cube: np.ndarray) -> np.ndarray:
         """
         FIX 2 — elastic deformation implemented directly with
-        scipy.ndimage.map_coordinates (the import already existed in the
-        original code but was never used).
+        scipy.ndimage.map_coordinates.
 
         A single displacement field is computed for the H×W grid and then
         applied identically to every spectral band so spatial coherence
@@ -168,36 +176,45 @@ class HyperspectralTransform:
         if np.random.rand() >= self.elastic_prob:
             return cube
 
-        _, H, W = cube.shape
+        B, H, W = cube.shape
 
         # Random displacement fields, smoothed to look locally coherent
-        dx = gaussian_filter((np.random.rand(H, W) - 0.5) * 2, sigma=self.elastic_sigma)
-        dy = gaussian_filter((np.random.rand(H, W) - 0.5) * 2, sigma=self.elastic_sigma)
+        dx = gaussian_filter((np.random.rand(H, W) - 0.5) * 2 * self.elastic_alpha,
+                              sigma=self.elastic_sigma)
+        dy = gaussian_filter((np.random.rand(H, W) - 0.5) * 2 * self.elastic_alpha,
+                              sigma=self.elastic_sigma)
 
-        # Apply displacement field
+        # Build coordinate grids
         grid_y, grid_x = np.mgrid[0:H, 0:W]
-        distorted_grid = np.stack([grid_y + dy, grid_x + dx], axis=-1)
+        coords_y = grid_y + dy
+        coords_x = grid_x + dx
 
-        # Apply to every band identically
-        return map_coordinates(cube, distorted_grid, order=1, mode='nearest')
+        # Apply to each band separately
+        deformed = np.empty_like(cube)
+        for b in range(B):
+            deformed[b] = map_coordinates(
+                cube[b], [coords_y, coords_x], order=1, mode='nearest'
+            )
+
+        return deformed
     
     def spectral_augmentation(self, cube: np.ndarray) -> np.ndarray:
         """Advanced spectral augmentation techniques."""
         augmented = cube.copy()
-        _, _, C = cube.shape
-        
+        C, H, W = cube.shape
+
         # Band-wise noise injection
         if np.random.rand() < self.spectral_noise_prob:
-            noise = np.random.normal(0, self.noise_std, (C,))
+            noise = np.random.normal(0, self.noise_std, (C, 1, 1))
             augmented += noise
-        
+
         # Wavelength shift simulation (sensor calibration drift)
         if np.random.rand() < self.spectral_noise_prob:
-            shift_bands = np.random.choice(C, size=C//4, replace=False)
+            shift_bands = np.random.choice(C, size=max(1, C//4), replace=False)
             for band_idx in shift_bands:
                 shift = np.random.uniform(-self.spectral_shift_range, self.spectral_shift_range)
-                augmented[band_idx] = np.roll(augmented[band_idx], int(shift))
-        
+                augmented[band_idx] = np.roll(augmented[band_idx], int(shift), axis=(0, 1))
+
         return augmented
     
     def mixup_augmentation(self, cube1: np.ndarray, cube2: np.ndarray, alpha: float = None) -> np.ndarray:
@@ -210,29 +227,25 @@ class HyperspectralTransform:
     def cutmix_augmentation(self, cube1: np.ndarray, cube2: np.ndarray, lambda_val: float = None) -> np.ndarray:
         """CutMix augmentation for improved robustness."""
         if lambda_val is None:
-            lambda_val = np.random.uniform(0.8, 1.2)
-        
-        _, H, W, C = cube1.shape
-        # Random bounding box
-        rx = np.random.uniform(0.3, 0.7)
-        ry = np.random.uniform(0.3, 0.7)
-        rw = np.random.uniform(0.3, 0.7) * W
-        rh = np.random.uniform(0.3, 0.7) * H
-        
-        # Apply CutMix
-        mixed = np.zeros_like(cube1)
-        for c in range(C):
-            # Crop and resize
-            crop1 = cube1[c, int(rh):int(rh+rh), int(rw):int(rw+rw), c]
-            crop2 = cube2[c, int(rh):int(rh+rh), int(rw):int(rw+rw), c]
-            
-            # Resize to original size
-            resized1 = zoom(crop1, (1, H/rh, W/rw), order=1)
-            resized2 = zoom(crop2, (1, H/rh, W/rw), order=1)
-            
-            # Mix
-            mixed[c] = lambda_val * resized1 + (1 - lambda_val) * resized2
-        
+            lambda_val = np.random.uniform(0.3, 0.7)
+
+        C, H, W = cube1.shape
+        # Random bounding box center and size
+        cx = np.random.randint(W)
+        cy = np.random.randint(H)
+        cut_w = int(W * np.sqrt(1 - lambda_val))
+        cut_h = int(H * np.sqrt(1 - lambda_val))
+
+        # Bounding box coordinates
+        x1 = np.clip(cx - cut_w // 2, 0, W)
+        y1 = np.clip(cy - cut_h // 2, 0, H)
+        x2 = np.clip(cx + cut_w // 2, 0, W)
+        y2 = np.clip(cy + cut_h // 2, 0, H)
+
+        # Apply CutMix: paste region from cube2 into cube1
+        mixed = cube1.copy()
+        mixed[:, y1:y2, x1:x2] = cube2[:, y1:y2, x1:x2]
+
         return mixed
     
     def brightness_contrast_augmentation(self, cube: np.ndarray) -> np.ndarray:
@@ -267,12 +280,6 @@ class HyperspectralTransform:
             noisy += poisson_noise
         
         return np.clip(noisy, 0, 1)
-        for b in range(cube.shape[0]):
-            deformed[b] = map_coordinates(
-                cube[b], [coords_y, coords_x], order=1, mode="reflect"
-            ).reshape(H, W)
-
-        return deformed
 
     # ── full pipeline (operates on RAW cube) ──────────────────────────────────
 
@@ -293,16 +300,7 @@ class HyperspectralTransform:
         
         # Advanced augmentations
         cube = self.spectral_augmentation(cube)
-        
-        # Regularization techniques
-        if np.random.rand() < self.mixup_prob:
-            # Simple mixup with spectral noise version
-            cube = self.spectral_augmentation(cube)
-        
-        if np.random.rand() < self.cutmix_prob:
-            # CutMix with spectral noise version
-            cube = self.spectral_augmentation(cube)
-        
+
         # Brightness/contrast adjustment
         cube = self.brightness_contrast_augmentation(cube)
         
