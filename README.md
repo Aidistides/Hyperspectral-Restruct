@@ -94,6 +94,9 @@ Microplastics (MPs, particles <5 mm) are among the fastest-growing and most insi
 
 Our 400–2500 nm hyperspectral pipeline is exceptionally well-suited for non-invasive MP detection from UAV platforms. While visible and near-infrared (VNIR, 400–1000 nm) can only provide limited discrimination, the **short-wave infrared (SWIR, 1000–2500 nm)** region captures the diagnostic overtone and combination absorption bands of synthetic polymers that are absent in natural soil matrices.
 
+#### LDIR Ground-Truth Verification
+Use `verification/ldir_verification.py` to cross-validate 3D CNN predictions against Agilent 8700 LDIR lab results (Jia et al. 2022 and similar studies). Supports CSV exports from LDIR software.
+
 #### Key Spectral Signatures
 Common polymers exhibit distinct C–H, C–O, and C=O vibrational features:
 
