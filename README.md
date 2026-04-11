@@ -311,6 +311,10 @@ Future work should expand beyond single-drone HSI to incorporate the full spectr
 
 
 
+
+
+
+
 ## Data Appendix 1: Recommended Public Hyperspectral Soil Datasets
 
 The following datasets are ideal starting points for testing the preprocessing pipeline, training the 3D CNN, and validating soil-health / contaminant-detection results. All are provided in native hyperspectral formats (ENVI .hdr + binary, multi-band GeoTIFF, or sensor-native cubes) and are explicitly soil-focused.
