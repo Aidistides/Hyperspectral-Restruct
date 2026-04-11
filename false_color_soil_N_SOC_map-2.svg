@@ -1,0 +1,124 @@
+<svg width="100%" viewBox="0 0 680 520" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>False-color soil nitrogen and SOC map – Maryland commercial farm pilot</title>
+<desc>A pseudo-drone hyperspectral false-color map showing spatial distribution of soil nitrogen (N) and soil organic carbon (SOC) across a 240-acre farm field, derived from SWIR band composites at 1478 nm (N) and 1650–1700 nm (SOC).</desc>
+
+<rect width="100%" height="100%" fill="#161b22" rx="8"/>
+
+<defs>
+  <linearGradient id="nGrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"   stop-color="#FAC775"/>
+    <stop offset="30%"  stop-color="#5DCAA5"/>
+    <stop offset="60%"  stop-color="#1D9E75"/>
+    <stop offset="100%" stop-color="#085041"/>
+  </linearGradient>
+  <linearGradient id="nBar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"   stop-color="#04342C"/>
+    <stop offset="50%"  stop-color="#1D9E75"/>
+    <stop offset="100%" stop-color="#FAC775"/>
+  </linearGradient>
+  <linearGradient id="socBar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"   stop-color="#3C3489"/>
+    <stop offset="50%"  stop-color="#7F77DD"/>
+    <stop offset="100%" stop-color="#FAEEDA"/>
+  </linearGradient>
+  <filter id="blur2"><feGaussianBlur stdDeviation="2"/></filter>
+  <clipPath id="fieldClip"><rect x="40" y="42" width="390" height="280" rx="6"/></clipPath>
+</defs>
+
+<!-- Field background – N layer -->
+<rect x="40" y="42" width="390" height="280" rx="6" fill="url(#nGrad)" opacity="0.85"/>
+
+<!-- SOC overlay patches -->
+<ellipse cx="130" cy="110" rx="70" ry="55" fill="#7F77DD" opacity="0.45" filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="310" cy="200" rx="90" ry="60" fill="#3C3489" opacity="0.4"  filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="200" cy="240" rx="60" ry="40" fill="#534AB7" opacity="0.35" filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="360" cy="120" rx="45" ry="35" fill="#AFA9EC" opacity="0.3"  filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="80"  cy="260" rx="40" ry="30" fill="#26215C" opacity="0.38" filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+
+<!-- N hotspot highlights -->
+<ellipse cx="165" cy="155" rx="55" ry="38" fill="#04342C" opacity="0.5"  filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="290" cy="100" rx="40" ry="28" fill="#1D9E75" opacity="0.4"  filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+<ellipse cx="380" cy="270" rx="35" ry="25" fill="#EF9F27" opacity="0.45" filter="url(#blur2)" clip-path="url(#fieldClip)"/>
+
+<!-- Field outline -->
+<rect x="40" y="42" width="390" height="280" rx="6" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+
+<!-- Crop row lines -->
+<g stroke="#ffffff" stroke-width="0.4" opacity="0.12">
+  <line x1="40" y1="62"  x2="430" y2="62"/>
+  <line x1="40" y1="80"  x2="430" y2="80"/>
+  <line x1="40" y1="98"  x2="430" y2="98"/>
+  <line x1="40" y1="116" x2="430" y2="116"/>
+  <line x1="40" y1="134" x2="430" y2="134"/>
+  <line x1="40" y1="152" x2="430" y2="152"/>
+  <line x1="40" y1="170" x2="430" y2="170"/>
+  <line x1="40" y1="188" x2="430" y2="188"/>
+  <line x1="40" y1="206" x2="430" y2="206"/>
+  <line x1="40" y1="224" x2="430" y2="224"/>
+  <line x1="40" y1="242" x2="430" y2="242"/>
+  <line x1="40" y1="260" x2="430" y2="260"/>
+  <line x1="40" y1="278" x2="430" y2="278"/>
+  <line x1="40" y1="296" x2="430" y2="296"/>
+</g>
+
+<!-- Sample point markers -->
+<circle cx="130" cy="110" r="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="165" cy="155" r="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="310" cy="200" r="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="380" cy="270" r="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="80"  cy="260" r="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+
+<!-- Title -->
+<text x="235" y="20" text-anchor="middle" font-size="13" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">Maryland farm pilot — false-color N + SOC map</text>
+<text x="235" y="34" text-anchor="middle" font-size="11" font-family="system-ui,sans-serif" fill="#aaaaaa">Composite: N @ 1478 nm · SOC @ 1650–1700 nm · drone HSI 400–2500 nm</text>
+
+<!-- Compass / scale bar -->
+<text x="54" y="338" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">N ↑</text>
+<line x1="80" y1="338" x2="180" y2="338" stroke="#888780" stroke-width="1.5"/>
+<line x1="80" y1="334" x2="80"  y2="342" stroke="#888780" stroke-width="1.5"/>
+<line x1="180" y1="334" x2="180" y2="342" stroke="#888780" stroke-width="1.5"/>
+<text x="130" y="352" text-anchor="middle" font-size="11" font-family="system-ui,sans-serif" fill="#aaaaaa">0.5 km</text>
+
+<!-- Legend panel -->
+<rect x="450" y="42" width="200" height="280" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+<text x="550" y="62" text-anchor="middle" font-size="12" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">Legend</text>
+
+<!-- N gradient bar -->
+<text x="466" y="80" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Soil nitrogen (N)</text>
+<rect x="466" y="86" width="16" height="80" rx="2" fill="url(#nBar)"/>
+<text x="488" y="93"  font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">High  2.8 %</text>
+<text x="488" y="128" font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">Avg   1.4 %</text>
+<text x="488" y="163" font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">Low   0.4 %</text>
+<text x="466" y="179" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² = 0.89 · RMSE 0.14 %</text>
+
+<line x1="466" y1="196" x2="636" y2="196" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+
+<!-- SOC gradient bar -->
+<text x="466" y="212" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Soil organic carbon (SOC)</text>
+<rect x="466" y="218" width="16" height="80" rx="2" fill="url(#socBar)"/>
+<text x="488" y="225" font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">High  4.2 %</text>
+<text x="488" y="260" font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">Avg   2.1 %</text>
+<text x="488" y="296" font-size="10" font-family="system-ui,sans-serif" fill="#cccccc">Low   0.5 %</text>
+<text x="466" y="311" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² = 0.91 · RMSE 0.18 %</text>
+
+<!-- Stats strip -->
+<rect x="40" y="368" width="390" height="60" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+<text x="55" y="385" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Field area: 240 ac</text>
+<text x="55" y="400" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Bands used: 1478, 1697, 2050–2110 nm</text>
+<text x="55" y="415" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Inference: 38–41 ms/cube · Jetson Orin Nano</text>
+<text x="295" y="385" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Model: 3D CNN + SPA</text>
+<text x="295" y="400" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Feature sel.: 12-band SWIR</text>
+<text x="295" y="415" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">Lab validation: pXRF / FTIR</text>
+
+<!-- Callout lines -->
+<line x1="165" y1="155" x2="40"  y2="445" stroke="#1D9E75" stroke-width="0.6" stroke-dasharray="3 3" opacity="0.8"/>
+<text x="42" y="452" font-size="10" font-family="system-ui,sans-serif" fill="#1D9E75">Peak N zone</text>
+<text x="42" y="463" font-size="10" font-family="system-ui,sans-serif" fill="#1D9E75">~2.6 % @ 1478 nm</text>
+
+<line x1="310" y1="200" x2="450" y2="445" stroke="#7F77DD" stroke-width="0.6" stroke-dasharray="3 3" opacity="0.8"/>
+<text x="452" y="452" font-size="10" font-family="system-ui,sans-serif" fill="#7F77DD">High SOC patch</text>
+<text x="452" y="463" font-size="10" font-family="system-ui,sans-serif" fill="#7F77DD">~3.8 % @ 1670 nm</text>
+
+<text x="40" y="500" font-size="10" font-family="system-ui,sans-serif" fill="#555555">Source: Icarus drone HSI · Maryland pilot 2024 · anonymized coordinates</text>
+
+</svg>
