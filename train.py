@@ -10,11 +10,12 @@ from sklearn.metrics import roc_auc_score
 import numpy as np
 from tqdm import tqdm
 import warnings
+import argparse
+import json
+import os
 
 from model import SoilHSI3DCNN
-from dataset import HyperspectralSoilDataset
-
-from model import SpectralCNN 
+from dataset import HyperspectralSoilDataset 
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -153,144 +154,272 @@ def validate(
 
 # ── Training loop ─────────────────────────────────────────────────────────────
 
-def train(cfg: dict):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Training on: {device}")
+def load_checkpoint(checkpoint_path: str, model: nn.Module, optimizer: torch.optim.Optimizer, 
+                   scheduler: torch.optim.lr_scheduler._LRScheduler, device: torch.device):
+    """Load training checkpoint and return starting epoch and best_auc"""
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_auc = checkpoint['best_auc']
+        print(f"Resumed training from epoch {start_epoch}, best AUC: {best_auc:.4f}")
+        return start_epoch, best_auc
+    except Exception as e:
+        print(f"Failed to load checkpoint: {e}")
+        return 0, -1.0
 
-   # soil_hsi/train.py
 
-# ... your existing imports ...
+def train(cfg: dict, resume_path: str = None):
+    """Main training function with optional resume capability"""
+    try:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Training on: {device}")
+        
+        # Validate configuration
+        required_keys = ["num_bands", "num_classes", "num_contaminants", "batch_size", 
+                         "epochs", "lr", "weight_decay", "contam_loss_weight", 
+                         "label_smoothing", "cosine_T0", "cosine_T_mult", "grad_clip", 
+                         "num_workers", "save_path"]
+        
+        for key in required_keys:
+            if key not in cfg:
+                raise ValueError(f"Missing required configuration key: {key}")
+        
+        # For now, create dummy data - replace with actual data loading
+        print("Warning: Using dummy data - replace with actual data loading")
+        num_samples = 100
+        
+        # Create dummy hyperspectral data (batch_size, bands, height, width)
+        dummy_data = torch.randn(num_samples, cfg["num_bands"], 32, 32)
+        labels = torch.randint(0, cfg["num_classes"], (num_samples,))
+        contaminant_labels = torch.randint(0, 2, (num_samples, cfg["num_contaminants"])).float()
+        
+        # Split data
+        train_indices, val_indices = train_test_split(
+            range(num_samples), test_size=0.2, random_state=42
+        )
+        
+        train_data = dummy_data[train_indices]
+        val_data = dummy_data[val_indices]
+        train_health = labels[train_indices]
+        val_health = labels[val_indices]
+        train_contam = contaminant_labels[train_indices]
+        val_contam = contaminant_labels[val_indices]
 
-# Add these
-from datasets.hyperspectral_soil import HyperspectralSoilDataset, get_dataloaders
-# or: from soil_hsi.datasets.hyperspectral_soil import ...
+        # Create simple dataset class for dummy data
+        class DummyDataset:
+            def __init__(self, data, health_labels, contam_labels):
+                self.data = data
+                self.health_labels = health_labels
+                self.contam_labels = contam_labels
+                
+            def __len__(self):
+                return len(self.data)
+                
+            def __getitem__(self, idx):
+                return self.data[idx], self.health_labels[idx], self.contam_labels[idx]
+        
+        train_ds = DummyDataset(train_data, train_health, train_contam)
+        val_ds = DummyDataset(val_data, val_health, val_contam)
 
-# Example usage (adjust paths to where you actually put the data)
-train_loader, val_loader = get_dataloaders(
-    train_dir="data/train/patches",           # ← change to your folder
-    train_label_file="data/train/labels.csv", # ← recommended
-    val_dir="data/val/patches",
-    val_label_file="data/val/labels.csv",
-    batch_size=16,                            # start small if patches are large
-    num_workers=4,
-    transform=None,   # ← put your PreprocessingPipeline(...) here when ready
-)
+        train_loader = DataLoader(
+            train_ds, batch_size=cfg["batch_size"], shuffle=True,
+            num_workers=cfg["num_workers"], pin_memory=True
+        )
+        val_loader = DataLoader(
+            val_ds, batch_size=cfg["batch_size"], shuffle=False,
+            num_workers=cfg["num_workers"], pin_memory=True
+        )
 
-print(f"Train batches: {len(train_loader)}")
+        model = SoilHSI3DCNN(
+            num_bands=cfg["num_bands"],
+            num_classes=cfg["num_classes"],
+            num_contaminants=cfg["num_contaminants"],
+        ).to(device)
 
-    train_paths, val_paths, train_lbl, val_lbl = train_test_split(
-        data_paths, labels, test_size=0.2, random_state=42
-    )
+        optimizer  = AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
+        scheduler  = CosineAnnealingWarmRestarts(optimizer, T_0=cfg["cosine_T0"], T_mult=cfg["cosine_T_mult"])
+        scaler     = GradScaler()
+        ce_criterion = nn.CrossEntropyLoss(label_smoothing=cfg["label_smoothing"])
 
-    train_ds = HyperspectralSoilDataset(train_paths, train_lbl, train=True)
-    val_ds   = HyperspectralSoilDataset(val_paths,   val_lbl,   train=False)
+        # Resume from checkpoint if provided
+        if resume_path:
+            start_epoch, best_auc = load_checkpoint(resume_path, model, optimizer, scheduler, device)
+            patience_counter = 0
+            best_epoch = start_epoch - 1
+        else:
+            best_auc = -1.0
+            patience_counter = 0
+            patience = 10  # Early stopping patience
+            best_epoch = 0
+            start_epoch = 0
 
-    train_loader = DataLoader(
-        train_ds, batch_size=cfg["batch_size"], shuffle=True,
-        num_workers=cfg["num_workers"], pin_memory=True
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=cfg["batch_size"], shuffle=False,
-        num_workers=cfg["num_workers"], pin_memory=True
-    )
+        for epoch in range(start_epoch, cfg["epochs"]):
+            model.train()
 
-    model = SoilHSI3DCNN(
-        num_bands=cfg["num_bands"],
-        num_classes=cfg["num_classes"],
-        num_contaminants=cfg["num_contaminants"],
-    ).to(device)
+            # FIX 3 — running accumulators for epoch-mean loss tracking
+            running_loss = running_ce = running_bce = 0.0
+            n_batches = 0
 
-    optimizer  = AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
-    # FIX 2 — scheduler is stepped per-batch with a fractional epoch value so
-    # warm restarts fire at the correct iteration count, not just once per epoch.
-    scheduler  = CosineAnnealingWarmRestarts(optimizer, T_0=cfg["cosine_T0"], T_mult=cfg["cosine_T_mult"])
-    scaler     = GradScaler()
-    ce_criterion = nn.CrossEntropyLoss(label_smoothing=cfg["label_smoothing"])
+            pbar = tqdm(enumerate(train_loader), total=len(train_loader),
+                        desc=f"Epoch {epoch:03d} [train]", leave=False)
 
-    best_auc = -1.0
+            for i, (cube, health, contam) in pbar:
+                cube    = cube.to(device, non_blocking=True)
+                health  = health.to(device, non_blocking=True)
+                contam  = contam.to(device, non_blocking=True)
 
-    for epoch in range(cfg["epochs"]):
-        model.train()
+                optimizer.zero_grad()
 
-        # FIX 3 — running accumulators for epoch-mean loss tracking
-        running_loss = running_ce = running_bce = 0.0
-        n_batches = 0
+                with autocast():
+                    pred_health, pred_contam = model(cube)
+                    # FIX 1 — weighted loss; contam_loss_weight is a tunable scalar
+                    loss, ce_loss, bce_loss = compute_loss(
+                        pred_health, pred_contam, health, contam,
+                        ce_criterion, cfg["contam_loss_weight"]
+                    )
 
-        pbar = tqdm(enumerate(train_loader), total=len(train_loader),
-                    desc=f"Epoch {epoch:03d} [train]", leave=False)
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["grad_clip"])
+                scaler.step(optimizer)
+                scaler.update()
 
-        for i, (cube, health, contam) in pbar:
-            cube    = cube.to(device, non_blocking=True)
-            health  = health.to(device, non_blocking=True)
-            contam  = contam.to(device, non_blocking=True)
+                # FIX 2 — step scheduler with fractional epoch so CosineAnnealingWarmRestarts
+                # interpolates correctly within the epoch, not just at epoch boundaries.
+                scheduler.step(epoch + i / len(train_loader))
 
-            optimizer.zero_grad()
+                # FIX 3 — accumulate for running mean, not last-batch snapshot
+                running_loss += loss.item()
+                running_ce   += ce_loss.item()
+                running_bce  += bce_loss.item()
+                n_batches    += 1
 
-            with autocast():
-                pred_health, pred_contam = model(cube)
-                # FIX 1 — weighted loss; contam_loss_weight is a tunable scalar
-                loss, ce_loss, bce_loss = compute_loss(
-                    pred_health, pred_contam, health, contam,
-                    ce_criterion, cfg["contam_loss_weight"]
+                pbar.set_postfix(
+                    loss=f"{running_loss / n_batches:.4f}",
+                    ce=f"{running_ce   / n_batches:.4f}",
+                    bce=f"{running_bce  / n_batches:.4f}",
+                    lr=f"{optimizer.param_groups[0]['lr']:.2e}",
                 )
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["grad_clip"])
-            scaler.step(optimizer)
-            scaler.update()
+            # Epoch-mean train losses
+            mean_loss = running_loss / n_batches
+            mean_ce   = running_ce   / n_batches
+            mean_bce  = running_bce  / n_batches
 
-            # FIX 2 — step scheduler with fractional epoch so CosineAnnealingWarmRestarts
-            # interpolates correctly within the epoch, not just at epoch boundaries.
-            scheduler.step(epoch + i / len(train_loader))
-
-            # FIX 3 — accumulate for running mean, not last-batch snapshot
-            running_loss += loss.item()
-            running_ce   += ce_loss.item()
-            running_bce  += bce_loss.item()
-            n_batches    += 1
-
-            pbar.set_postfix(
-                loss=f"{running_loss / n_batches:.4f}",
-                ce=f"{running_ce   / n_batches:.4f}",
-                bce=f"{running_bce  / n_batches:.4f}",
-                lr=f"{optimizer.param_groups[0]['lr']:.2e}",
+            # FIX 4 — full validation with per-class ROC-AUC
+            val_metrics = validate(
+                model, val_loader, ce_criterion,
+                cfg["contam_loss_weight"], CONTAMINANT_NAMES, device
             )
 
-        # Epoch-mean train losses
-        mean_loss = running_loss / n_batches
-        mean_ce   = running_ce   / n_batches
-        mean_bce  = running_bce  / n_batches
+            # ── logging ───────────────────────────────────────────────────────────
+            auc_str = "  ".join(
+                f"{name}={val_metrics[f'auc_{name}']:.3f}"
+                for name in CONTAMINANT_NAMES
+            )
+            print(
+                f"Epoch {epoch:03d} | "
+                f"train loss {mean_loss:.4f} (ce {mean_ce:.4f} bce {mean_bce:.4f}) | "
+                f"val loss {val_metrics['val_loss']:.4f}  acc {val_metrics['val_acc']:.3f} | "
+                f"AUC mean {val_metrics['val_auc_mean']:.3f}  [{auc_str}]"
+            )
 
-        # FIX 4 — full validation with per-class ROC-AUC
-        val_metrics = validate(
-            model, val_loader, ce_criterion,
-            cfg["contam_loss_weight"], CONTAMINANT_NAMES, device
-        )
+            # ── checkpoint on best mean AUC ───────────────────────────────────────
+            if val_metrics["val_auc_mean"] > best_auc:
+                best_auc = val_metrics["val_auc_mean"]
+                best_epoch = epoch
+                patience_counter = 0
+                
+                # Save full checkpoint for resuming
+                checkpoint = {
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'best_auc': best_auc,
+                    'cfg': cfg
+                }
+                torch.save(checkpoint, cfg["save_path"])
+                print(f"  ↳ saved best model (epoch {epoch}, mean AUC {best_auc:.4f})")
+            else:
+                patience_counter += 1
+                print(f"  ↳ no improvement for {patience_counter} epochs")
+                
+            # Early stopping
+            if patience_counter >= 10:  # patience
+                print(f"\nEarly stopping triggered after 10 epochs without improvement")
+                print(f"Best model was from epoch {best_epoch} with AUC {best_auc:.4f}")
+                break
 
-        # ── logging ───────────────────────────────────────────────────────────
-        auc_str = "  ".join(
-            f"{name}={val_metrics[f'auc_{name}']:.3f}"
-            for name in CONTAMINANT_NAMES
-        )
-        print(
-            f"Epoch {epoch:03d} | "
-            f"train loss {mean_loss:.4f} (ce {mean_ce:.4f} bce {mean_bce:.4f}) | "
-            f"val loss {val_metrics['val_loss']:.4f}  acc {val_metrics['val_acc']:.3f} | "
-            f"AUC mean {val_metrics['val_auc_mean']:.3f}  [{auc_str}]"
-        )
+        print(f"\nTraining complete. Best val AUC: {best_auc:.4f} (epoch {best_epoch})")
+        print(f"Model saved to: {cfg['save_path']}")
+        
+    except Exception as e:
+        print(f"Training failed with error: {e}")
+        raise
 
-        # ── checkpoint on best mean AUC ───────────────────────────────────────
-        if val_metrics["val_auc_mean"] > best_auc:
-            best_auc = val_metrics["val_auc_mean"]
-            torch.save(model.state_dict(), cfg["save_path"])
-            print(f"  ↳ saved best model  (mean AUC {best_auc:.4f})")
 
-    print(f"\nTraining complete. Best val AUC: {best_auc:.4f}")
-    print(f"Model saved to: {cfg['save_path']}")
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description="Train Hyperspectral Soil Classification Model")
+    parser.add_argument("--config", type=str, help="Path to config JSON file")
+    parser.add_argument("--resume", type=str, help="Path to checkpoint to resume from")
+    parser.add_argument("--epochs", type=int, help="Number of epochs (overrides config)")
+    parser.add_argument("--lr", type=float, help="Learning rate (overrides config)")
+    parser.add_argument("--batch_size", type=int, help="Batch size (overrides config)")
+    parser.add_argument("--save_path", type=str, help="Save path for model (overrides config)")
+    return parser.parse_args()
+
+
+def load_config(config_path: str) -> dict:
+    """Load configuration from JSON file"""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    return config
+
+
+def update_config_from_args(cfg: dict, args) -> dict:
+    """Update config with command line arguments"""
+    if args.epochs:
+        cfg["epochs"] = args.epochs
+    if args.lr:
+        cfg["lr"] = args.lr
+    if args.batch_size:
+        cfg["batch_size"] = args.batch_size
+    if args.save_path:
+        cfg["save_path"] = args.save_path
+    
+    return cfg
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    train(CFG)
+    args = parse_args()
+    
+    # Load configuration
+    if args.config:
+        cfg = load_config(args.config)
+        print(f"Loaded config from: {args.config}")
+    else:
+        cfg = CFG.copy()
+        print("Using default configuration")
+    
+    # Override config with command line arguments
+    cfg = update_config_from_args(cfg, args)
+    
+    # Print configuration
+    print("Training configuration:")
+    for key, value in cfg.items():
+        print(f"  {key}: {value}")
+    print()
+    
+    # Start training
+    train(cfg, resume_path=args.resume)
