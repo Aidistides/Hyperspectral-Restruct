@@ -1,0 +1,148 @@
+<svg width="100%" viewBox="0 0 680 580" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>SHAP band-importance plots – SWIR dominance across all five soil targets</title>
+<desc>SHAP feature importance bar charts for five soil targets: Nitrogen, SOC, PFAS, Heavy Metals, and Microplastics. SWIR bands (teal) account for over 85% of importance mass in every model.</desc>
+
+<rect width="100%" height="100%" fill="#161b22" rx="8"/>
+
+<!-- Title -->
+<text x="340" y="24" text-anchor="middle" font-size="13" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">SHAP band-importance plots — all five targets</text>
+<text x="340" y="38" text-anchor="middle" font-size="11" font-family="system-ui,sans-serif" fill="#aaaaaa">SWIR bands (&gt;1350 nm) account for &gt;85% of importance mass across all models</text>
+
+<!-- Legend -->
+<rect x="490" y="48" width="14" height="14" rx="2" fill="#1D9E75"/>
+<text x="508" y="59" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">SWIR band (&gt;1350 nm)</text>
+<rect x="490" y="68" width="14" height="14" rx="2" fill="#444441"/>
+<text x="508" y="79" font-size="11" font-family="system-ui,sans-serif" fill="#cccccc">VIS/NIR band (&lt;1350 nm)</text>
+
+<!-- ── ROW 1: Nitrogen + SOC ── -->
+
+<!-- Nitrogen panel -->
+<rect x="30" y="96" width="300" height="200" rx="6" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+<text x="180" y="114" text-anchor="middle" font-size="12" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">Nitrogen (N)</text>
+<text x="180" y="126" text-anchor="middle" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² 0.89 · RMSE 0.14% · SWIR 88%</text>
+
+<!-- N bars (y starts 136, each bar 22px tall, 4px gap) -->
+<g font-family="system-ui,sans-serif" font-size="9" fill="#aaaaaa">
+  <!-- bar labels -->
+  <text x="120" y="152" text-anchor="end">2410 nm (N-H)</text>
+  <text x="120" y="174" text-anchor="end">1478 nm (N-H)</text>
+  <text x="120" y="196" text-anchor="end">1697 nm (amide)</text>
+  <text x="120" y="218" text-anchor="end">2050–2110 nm</text>
+  <text x="120" y="240" text-anchor="end">1650–1700 nm</text>
+  <text x="120" y="262" text-anchor="end">900–1100 nm</text>
+  <text x="120" y="284" text-anchor="end">550–900 nm</text>
+</g>
+<!-- SWIR bars (teal) -->
+<rect x="122" y="141" width="148" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="163" width="138" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="185" width="118" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="207" width="105" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="229" width="75"  height="16" rx="2" fill="#1D9E75"/>
+<!-- NIR/VIS bars (gray) -->
+<rect x="122" y="251" width="42"  height="16" rx="2" fill="#444441"/>
+<rect x="122" y="273" width="22"  height="16" rx="2" fill="#444441"/>
+<!-- bar value labels -->
+<text x="274" y="153" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">21%</text>
+<text x="264" y="175" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">20%</text>
+<text x="244" y="197" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">16%</text>
+<text x="231" y="219" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">15%</text>
+<text x="201" y="241" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">10%</text>
+<text x="168" y="263" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">6%</text>
+<text x="148" y="285" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">3%</text>
+
+<!-- SOC panel -->
+<rect x="350" y="96" width="300" height="200" rx="6" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+<text x="500" y="114" text-anchor="middle" font-size="12" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">SOC</text>
+<text x="500" y="126" text-anchor="middle" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² 0.91 · RMSE 0.18% · SWIR 90%</text>
+
+<g font-family="system-ui,sans-serif" font-size="9" fill="#aaaaaa">
+  <text x="440" y="152" text-anchor="end">1650–1700 nm</text>
+  <text x="440" y="174" text-anchor="end">1700–1750 nm</text>
+  <text x="440" y="196" text-anchor="end">2100–2200 nm</text>
+  <text x="440" y="218" text-anchor="end">2200–2300 nm</text>
+  <text x="440" y="240" text-anchor="end">1350–1450 nm</text>
+  <text x="440" y="262" text-anchor="end">900–1100 nm</text>
+  <text x="440" y="284" text-anchor="end">550–900 nm</text>
+</g>
+<rect x="442" y="141" width="155" height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="163" width="130" height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="185" width="118" height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="207" width="108" height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="229" width="42"  height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="251" width="35"  height="16" rx="2" fill="#444441"/>
+<rect x="442" y="273" width="16"  height="16" rx="2" fill="#444441"/>
+<text x="601" y="153" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">21%</text>
+<text x="576" y="175" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">18%</text>
+<text x="564" y="197" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">16%</text>
+<text x="554" y="219" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">15%</text>
+<text x="488" y="241" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">6%</text>
+<text x="481" y="263" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">5%</text>
+<text x="462" y="285" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">2%</text>
+
+<!-- ── ROW 2: PFAS + Heavy Metals ── -->
+
+<!-- PFAS panel -->
+<rect x="30" y="312" width="300" height="200" rx="6" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+<text x="180" y="330" text-anchor="middle" font-size="12" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">PFAS</text>
+<text x="180" y="342" text-anchor="middle" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² 0.88 · RMSE 0.11 µg/kg · SWIR 86%</text>
+
+<g font-family="system-ui,sans-serif" font-size="9" fill="#aaaaaa">
+  <text x="120" y="358" text-anchor="end">1350–1450 nm (C-F)</text>
+  <text x="120" y="380" text-anchor="end">1700–1800 nm (C-F)</text>
+  <text x="120" y="402" text-anchor="end">1748 nm (C-F str.)</text>
+  <text x="120" y="424" text-anchor="end">1420 nm (C-F str.)</text>
+  <text x="120" y="446" text-anchor="end">2100–2400 nm</text>
+  <text x="120" y="468" text-anchor="end">1100–1200 nm</text>
+  <text x="120" y="490" text-anchor="end">550–900 nm</text>
+</g>
+<rect x="122" y="347" width="158" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="369" width="143" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="391" width="104" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="413" width="117" height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="435" width="50"  height="16" rx="2" fill="#1D9E75"/>
+<rect x="122" y="457" width="38"  height="16" rx="2" fill="#444441"/>
+<rect x="122" y="479" width="18"  height="16" rx="2" fill="#444441"/>
+<text x="284" y="358" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">22%</text>
+<text x="269" y="380" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">20%</text>
+<text x="230" y="402" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">14%</text>
+<text x="243" y="424" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">16%</text>
+<text x="176" y="446" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">7%</text>
+<text x="164" y="468" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">5%</text>
+<text x="144" y="490" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">2%</text>
+
+<!-- Heavy Metals panel -->
+<rect x="350" y="312" width="300" height="200" rx="6" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+<text x="500" y="330" text-anchor="middle" font-size="12" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">Heavy Metals (Pb, As, Cd)</text>
+<text x="500" y="342" text-anchor="middle" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">R² 0.92 · RMSE 0.09 mg/kg · SWIR 85%</text>
+
+<g font-family="system-ui,sans-serif" font-size="9" fill="#aaaaaa">
+  <text x="440" y="358" text-anchor="end">2200–2300 nm (min.)</text>
+  <text x="440" y="380" text-anchor="end">2300–2400 nm (min.)</text>
+  <text x="440" y="402" text-anchor="end">1000–1100 nm (ox.)</text>
+  <text x="440" y="424" text-anchor="end">900–1000 nm (ox.)</text>
+  <text x="440" y="446" text-anchor="end">1350–1450 nm</text>
+  <text x="440" y="468" text-anchor="end">700–900 nm</text>
+  <text x="440" y="490" text-anchor="end">550–700 nm</text>
+</g>
+<rect x="442" y="347" width="158" height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="369" width="126" height="16" rx="2" fill="#1D9E75"/>
+<!-- NIR oxide bands — not SWIR but informative -->
+<rect x="442" y="391" width="132" height="16" rx="2" fill="#444441"/>
+<rect x="442" y="413" width="122" height="16" rx="2" fill="#444441"/>
+<rect x="442" y="435" width="45"  height="16" rx="2" fill="#1D9E75"/>
+<rect x="442" y="457" width="28"  height="16" rx="2" fill="#444441"/>
+<rect x="442" y="479" width="18"  height="16" rx="2" fill="#444441"/>
+<text x="604" y="358" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">22%</text>
+<text x="572" y="380" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">17%</text>
+<text x="578" y="402" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">18%</text>
+<text x="568" y="424" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">17%</text>
+<text x="491" y="446" font-size="9" font-family="system-ui,sans-serif" fill="#cccccc">6%</text>
+<text x="474" y="468" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">4%</text>
+<text x="464" y="490" font-size="9" font-family="system-ui,sans-serif" fill="#aaaaaa">2%</text>
+
+<!-- ── ROW 3: Microplastics (centered) ── -->
+<rect x="190" y="524" width="300" height="36" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+<text x="340" y="538" text-anchor="middle" font-size="11" font-weight="500" font-family="system-ui,sans-serif" fill="#ffffff">Microplastics</text>
+<text x="340" y="552" text-anchor="middle" font-size="10" font-family="system-ui,sans-serif" fill="#aaaaaa">Acc. 91% · SWIR 91% · Top bands: 1714 nm + 2318 nm (C-H polymer overtones)</text>
+
+</svg>
