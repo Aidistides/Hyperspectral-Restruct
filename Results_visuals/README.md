@@ -37,7 +37,7 @@ C-F stretch absorption features. Two primary hotspots identified; coordinates an
 
 ## 3. Heavy-Metal Contamination Overlay
 
-![Heavy-metal contamination overlay showing Pb, As, and Cd plumes](heavy_metal_contamination_overlay.svg)
+![Heavy-metal contamination overlay showing Pb, As, and Cd plumes](heavy_metal_contamination_overlay-2.svg)
 
 Three independently modeled contaminant channels rendered as overlapping plume layers.  
 Co-contamination zone (Pb + As + Cd overlap) flagged as a potential agroterrorism signature.  
