@@ -10,7 +10,7 @@ All models use 3D CNN + SPA/MC-UVE feature selection (12–18 SWIR-dominant band
 
 ## 1. False-color Soil-N + SOC Map — Maryland Commercial Farm Pilot
 
-![False-color soil nitrogen and SOC map from Maryland commercial farm pilot](false_color_soil_N_SOC_map-2.svg)
+![False-color soil nitrogen and SOC map from Maryland commercial farm pilot](Results_visuals/false_color_soil_N_SOC_map-2.svg)
 
 Dual-channel false-color composite derived from drone hyperspectral imagery.  
 Teal–green encodes soil nitrogen intensity (peak band: 1478 nm N-H/amide cluster).  
@@ -26,7 +26,7 @@ Ground-truth validation via pXRF and FTIR. Field area: 240 ac.
 
 ## 2. PFAS Hotspot Heatmap (Anonymized)
 
-![PFAS hotspot heatmap showing C-F stretch absorption zones](PFAS_hotspot_heatmap-2.svg)
+![PFAS hotspot heatmap showing C-F stretch absorption zones](Results_visuals/PFAS_hotspot_heatmap-2.svg)
 
 Spatial distribution of PFAS (per- and polyfluoroalkyl substance) contamination detected via
 C-F stretch absorption features. Two primary hotspots identified; coordinates anonymized.  
@@ -40,7 +40,7 @@ C-F stretch absorption features. Two primary hotspots identified; coordinates an
 
 ## 3. Heavy-Metal Contamination Overlay
 
-![Heavy-metal contamination overlay showing Pb, As, and Cd plumes](heavy_metal_contamination_overlay-2.svg)
+![Heavy-metal contamination overlay showing Pb, As, and Cd plumes](Results_visuals/heavy_metal_contamination_overlay-2.svg)
 
 Three independently modeled contaminant channels rendered as overlapping plume layers.  
 Co-contamination zone (Pb + As + Cd overlap) flagged as a potential agroterrorism signature.  
@@ -54,7 +54,7 @@ Validation via pXRF field analysis.
 
 ## 4. Microplastics Abundance Map
 
-![Microplastics abundance map with polymer-type particle classification](microplastics_abundance_map-2.svg)
+![Microplastics abundance map with polymer-type particle classification](Results_visuals/microplastics_abundance_map-2.svg)
 
 Particle-type-coded abundance map distinguishing PE (circles), PP (diamonds), and PET (squares)
 via polymer-specific C-H overtone signatures. Density contours show two primary accumulation clusters.  
@@ -68,7 +68,7 @@ via polymer-specific C-H overtone signatures. Density contours show two primary 
 
 ## 5. SHAP Band-Importance Plots
 
-![SHAP band importance plots showing SWIR dominance across all five soil targets](SHAP_band_importance_plots.svg)
+![SHAP band importance plots showing SWIR dominance across all five soil targets](Results_visuals/SHAP_band_importance_plots.svg)
 
 SHAP feature-importance breakdown across all five targets.  
 SWIR bands (> 1350 nm) account for **> 85 % of total importance mass** in every model,
