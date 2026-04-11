@@ -23,7 +23,7 @@ Ground-truth validation via pXRF and FTIR. Field area: 240 ac.
 
 ## 2. PFAS Hotspot Heatmap (Anonymized)
 
-![PFAS hotspot heatmap showing C-F stretch absorption zones](PFAS_hotspot_heatmap.svg)
+![PFAS hotspot heatmap showing C-F stretch absorption zones](PFAS_hotspot_heatmap-2.svg)
 
 Spatial distribution of PFAS (per- and polyfluoroalkyl substance) contamination detected via
 C-F stretch absorption features. Two primary hotspots identified; coordinates anonymized.  
@@ -51,7 +51,7 @@ Validation via pXRF field analysis.
 
 ## 4. Microplastics Abundance Map
 
-![Microplastics abundance map with polymer-type particle classification](microplastics_abundance_map.svg)
+![Microplastics abundance map with polymer-type particle classification](microplastics_abundance_map-2.svg)
 
 Particle-type-coded abundance map distinguishing PE (circles), PP (diamonds), and PET (squares)
 via polymer-specific C-H overtone signatures. Density contours show two primary accumulation clusters.  
