@@ -2,6 +2,19 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from scipy.ndimage import zoom, map_coordinates, gaussian_filter
+import numpy as np
+from pathlib import Path
+import cv2
+from typing import List, Tuple, Optional, Union
+import warnings
+
+# Import calibration module
+try:
+    from calibration import CalibrationPipeline, CalibrationConfig
+    CALIBRATION_AVAILABLE = True
+except ImportError:
+    CALIBRATION_AVAILABLE = False
+    warnings.warn("Calibration module not available. Install calibration dependencies for radiometric correction.")
 
 
 # ── Augmentation pipeline ─────────────────────────────────────────────────────
@@ -220,6 +233,9 @@ class HyperspectralSoilDataset(Dataset):
         num_bands: int = 200,
         target_size: tuple = (64, 64),
         train: bool = True,
+        calibrate: bool = False,
+        calib_config: Optional[str] = None,
+        wavelengths: Optional[np.ndarray] = None,
     ):
         assert len(data_paths) == len(labels), \
             f"data_paths and labels length mismatch: {len(data_paths)} vs {len(labels)}"
@@ -229,15 +245,49 @@ class HyperspectralSoilDataset(Dataset):
         self.num_bands = num_bands
         self.target_size = target_size
         self.transform = HyperspectralTransform(target_size) if train else None
+        
+        # Initialize calibration pipeline
+        self.calibrate = calibrate and CALIBRATION_AVAILABLE
+        self.calibration_pipeline = None
+        
+        if self.calibrate:
+            if calib_config is None:
+                # Use default calibration config
+                calib_config = "calibration/configs/default.yaml"
+            
+            if wavelengths is None:
+                # Default wavelength range (400-1000nm, 3nm steps for 200 bands)
+                wavelengths = np.linspace(400, 1000, num_bands)
+            
+            try:
+                config = CalibrationConfig.from_yaml(calib_config)
+                self.calibration_pipeline = CalibrationPipeline(config, wavelengths)
+                self.wavelengths = wavelengths
+                print(f"Calibration pipeline initialized with {len(wavelengths)} wavelengths")
+            except Exception as e:
+                print(f"Failed to initialize calibration pipeline: {e}")
+                self.calibrate = False
 
     def __len__(self) -> int:
         return len(self.data_paths)
 
     def __getitem__(self, idx: int):
-        # ── 1. Load ───────────────────────────────────────────────────────────
+        # Step 1: Load raw cube
         cube = np.load(self.data_paths[idx]).astype(np.float32)  # (B, H, W)
 
-        # ── 2. Resample to canonical shape ────────────────────────────────────
+        # Step 2: Apply calibration if enabled (before other processing)
+        if self.calibrate and self.calibration_pipeline is not None:
+            try:
+                # Transpose to (H, W, B) for calibration pipeline
+                cube_hwb = cube.transpose(1, 2, 0)
+                calibrated_cube, _ = self.calibration_pipeline.calibrate_single_cube(cube_hwb)
+                # Transpose back to (B, H, W)
+                cube = calibrated_cube.transpose(2, 0, 1)
+            except Exception as e:
+                print(f"Calibration failed for sample {idx}: {e}")
+                # Continue with uncalibrated data
+
+        # Step 3: Resample to canonical shape
         # Band dimension
         if cube.shape[0] != self.num_bands:
             cube = zoom(cube, (self.num_bands / cube.shape[0], 1, 1), order=1)
@@ -248,21 +298,16 @@ class HyperspectralSoilDataset(Dataset):
             if (H, W) != (tH, tW):
                 cube = zoom(cube, (1, tH / H, tW / W), order=1)
 
-        # ── 3. Augmentation on RAW cube (masking + spatial) ───────────────────
-        # FIX 1 — augmentation (including masking) happens BEFORE normalisation.
-        # Masked zeros are genuine "no signal" values at this stage.
+        # Step 4: Augmentation on RAW cube (masking + spatial)
         if self.transform is not None:
             cube = self.transform(cube)
 
-        # ── 4. Band-wise z-score normalisation ────────────────────────────────
-        # FIX 3 — per-sample normalisation is intentional and correct for HSI.
-        # Computing statistics over (H, W) for each band independently keeps
-        # each acquisition on a common scale without leaking dataset statistics.
-        mean = cube.mean(axis=(1, 2), keepdims=True)          # (B, 1, 1)
-        std  = cube.std(axis=(1, 2), keepdims=True) + 1e-8    # (B, 1, 1)
+        # Step 5: Band-wise z-score normalisation
+        mean = cube.mean(axis=(1, 2), keepdims=True)
+        std  = cube.std(axis=(1, 2), keepdims=True) + 1e-8
         cube = (cube - mean) / std
 
-        # ── 5. To tensor (1, Bands, H, W) ────────────────────────────────────
+        # Step 6: To tensor (1, Bands, H, W)
         cube_t = torch.from_numpy(cube).unsqueeze(0)  # add channel dim
 
         health_label, contam_label = self.labels[idx]

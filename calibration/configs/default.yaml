@@ -1,0 +1,65 @@
+# Default calibration configuration for drone-based hyperspectral imaging
+
+radiometric:
+  sensor_name: "drone_hsi_v1"
+  bit_depth: 12
+  gain: 1.0
+  offset: 0.0
+  dark_current:
+    band_0: 10.0
+    band_1: 12.0
+    band_2: 8.0
+    band_3: 15.0
+  vignetting_correction: true
+  non_uniformity_correction: true
+  dn_to_radiance_coeffs: null  # Will be estimated from data
+  radiance_to_reflectance_method: "empirical_line"
+  reference_panel_reflectance:
+    400: 0.99
+    450: 0.98
+    500: 0.97
+    550: 0.96
+    600: 0.95
+    650: 0.94
+    700: 0.93
+    750: 0.92
+    800: 0.91
+    850: 0.90
+    900: 0.89
+    950: 0.88
+    1000: 0.87
+  reference_panel_location: "field_center"
+
+atmospheric:
+  atmospheric_model: "dark_object_subtraction"
+  dark_object_percentile: 1.0
+  use_empirical_line: true
+  min_wavelength: 400.0
+  max_wavelength: 1000.0
+  water_vapor_bands:
+    - 940
+    - 1140
+    - 1380
+  rayleigh_correction: true
+  aerosol_correction: true
+
+ground_truth:
+  reference_targets_file: null  # Path to reference targets file
+  calibration_method: "linear_regression"
+  min_reference_samples: 3
+  max_calibration_rmse: 0.05
+  outlier_detection: true
+  outlier_threshold: 2.0
+  cross_validation_folds: 5
+  calibration_uncertainty_threshold: 0.1
+
+# Pipeline settings
+enable_radiometric: true
+enable_atmospheric: true
+enable_ground_truth: true
+output_format: "reflectance"
+quality_metrics: true
+save_intermediate: false
+output_directory: "calibrated_data"
+validate_calibration: true
+calibration_report: true

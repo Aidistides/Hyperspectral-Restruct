@@ -214,6 +214,15 @@ def train(cfg: dict, resume_path: str = None):
                 self.data = data
                 self.health_labels = health_labels
                 self.contam_labels = contam_labels
+                
+            def __len__(self):
+                return len(self.data)
+                
+            def __getitem__(self, idx):
+                return self.data[idx], self.health_labels[idx], self.contam_labels[idx]
+        
+        train_ds = DummyDataset(train_data, train_health, train_contam)
+        val_ds = DummyDataset(val_data, val_health, val_contam)
 
         train_loader = DataLoader(
             train_ds, batch_size=cfg["batch_size"], shuffle=True,
@@ -362,8 +371,6 @@ def parse_args():
     parser.add_argument("--lr", type=float, help="Learning rate (overrides config)")
     parser.add_argument("--batch_size", type=int, help="Batch size (overrides config)")
     parser.add_argument("--save_path", type=str, help="Save path for model (overrides config)")
-    parser.add_argument("--calibrate", action="store_true", help="Enable radiometric calibration")
-    parser.add_argument("--calib_config", type=str, help="Path to calibration config file")
     return parser.parse_args()
 
 
