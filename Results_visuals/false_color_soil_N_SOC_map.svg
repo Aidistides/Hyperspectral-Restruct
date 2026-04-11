@@ -1,8 +1,3 @@
-<style>
-img[src$=".svg"] { filter: invert(0); }
-svg text, svg tspan { fill: #ffffff !important; }
-</style>
-
 <svg width="100%" viewBox="0 0 680 520" role="img" xmlns="http://www.w3.org/2000/svg">
 <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">False-color soil nitrogen and SOC map – Maryland commercial farm pilot</title>
 <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">A pseudo-drone hyperspectral false-color map showing spatial distribution of soil nitrogen (N) and soil organic carbon (SOC) across a 240-acre farm field, derived from SWIR band composites at 1478 nm (N) and 1650–1700 nm (SOC).</desc>
