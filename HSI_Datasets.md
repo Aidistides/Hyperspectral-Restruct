@@ -17,11 +17,19 @@ Perfect for training / fine-tuning the Enotrium 3D CNN pipeline.
 | **OHID-1 (2025)** | Satellite HSI | Varies (10 full scenes) | Scene level | New large-scale general-purpose HSI benchmark | [Figshare (Nature Scientific Data)](https://figshare.com/articles/online_resource/OHID-1/27966024/8) |
 | **HyperPRI** | Underground root HSI + RGB | VNIR | Root-scale | Soil-root interaction (phytoremediation relevant) | [UF ML Lab / ScienceDirect](https://www.sciencedirect.com/science/article/pii/S0168169924006987) |
 | **Plastic Debris Hyperspectral Database (2024)** | Lab SWIR reflectance | 400–2500 nm | Spectra + images | Microplastics in water/soil matrices (PE, PP, PET, etc.) | [Nature Scientific Data](https://www.nature.com/articles/s41597-024-03974-x) |
+| **Munsell Soil Color Chart HSI Dataset** | SPECIM IQ lab/field | 204 bands (397–1003 nm) | 20×20 chips + full scenes | Soil color calibration, classification benchmarks, algorithm testing | [Zenodo DOI: 10.5281/zenodo.8143355](https://doi.org/10.5281/zenodo.8143355) |
+| **Database of Hyperspectral Images of Phosphorus in Soil** | Bayspec OCIF push-broom | 145 bands (420–1000 nm) | Lab samples (152) | Soil chemistry & nutrient quantification (phosphorus) | [Mendeley Data Version 3](https://data.mendeley.com/datasets/) |
+| **Indian Pines AVIRIS (Site 3)** | AVIRIS airborne | 220 bands (400–2500 nm) | ~20m resolution, 2×2 mile | Field-scale agriculture/soil mapping, residue studies | [Purdue University Research Repository](https://purr.purdue.edu/) |
 
 ### Enotrium Pipeline
 1. **Start here** → HYPERVIEW2 + LUCAS 2015 (soil parameters + ground truth).  
-2. Add **Plastic Debris Database** for microplastics pre-training.  
-3. Fine-tune on your own UAV 400–2500 nm cubes.
+2. Add **Munsell Soil Color Chart** for color calibration and **Phosphorus Database** for nutrient quantification.  
+3. Include **Plastic Debris Database** for microplastics pre-training.  
+4. Use **Indian Pines AVIRIS (Site 3)** for large-scale field validation.  
+5. Fine-tune on your own UAV 400–2500 nm cubes.
+
+### Bonus: SPECCHIO Spectral Libraries
+Additional soil spectral collections available as ENVI .sli/.hdr exports from recent Zenodo/Mendeley uploads. Search for "soil hyperspectral ENVI" for the latest spectral library additions.
 
 All datasets are open-access (some require free registration).  
 Last updated: April 2026.
