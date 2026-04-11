@@ -11,7 +11,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import random
 
-class MP RobustnessAugmentor:
+class MPRobustnessAugmentor:
     """
     Applies augmentations and corrections inspired by the paper:
     - Simulate wet-filter effects (stronger absorption at longer wavelengths)

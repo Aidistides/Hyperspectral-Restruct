@@ -55,13 +55,30 @@ class MPBaselineModels:
     
     def train_rf(self, X: np.ndarray, y: np.ndarray, **kwargs):
         """Random Forest baseline – robust when data is limited (Liu et al.)."""
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y if len(np.unique(y)) > 1 else None)
-        self.rf = RandomForestClassifier(n_estimators=200, max_depth=None, random_state=42, **kwargs)
-        self.rf.fit(X_train, y_train)
-        y_pred = self.rf.predict(X_test)
-        print("=== Random Forest Baseline ===")
-        print(classification_report(y_test, y_pred, zero_division=0))
-        return self.rf
+        if X.shape[0] < 10:
+            raise ValueError(f"Insufficient training data: {X.shape[0]} samples (minimum 10 required)")
+        
+        if len(X.shape) != 2:
+            raise ValueError(f"Expected 2D data (samples, features), got shape {X.shape}")
+            
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, 
+            stratify=y if len(np.unique(y)) > 1 else None
+        )
+        
+        try:
+            self.rf = RandomForestClassifier(
+                n_estimators=200, max_depth=None, random_state=42, **kwargs
+            )
+            self.rf.fit(X_train, y_train)
+            y_pred = self.rf.predict(X_test)
+            
+            print("=== Random Forest Baseline ===")
+            print(classification_report(y_test, y_pred, zero_division=0))
+            return self.rf
+            
+        except Exception as e:
+            raise RuntimeError(f"Random Forest training failed: {e}")
     
     def train_1d_cnn(self, X: np.ndarray, y: np.ndarray, epochs: int = 30, batch_size: int = 32, lr: float = 0.001):
         """1D CNN on raw spectra (strong performer per Liu et al. 2023)."""
