@@ -215,6 +215,19 @@ def train(cfg: dict, resume_path: str = None):
                 self.health_labels = health_labels
                 self.contam_labels = contam_labels
 
+            def __len__(self):
+                return len(self.data)
+
+            def __getitem__(self, idx):
+                return (
+                    self.data[idx].unsqueeze(0),  # add channel dim → (1, bands, H, W)
+                    self.health_labels[idx],
+                    self.contam_labels[idx],
+                )
+
+        train_ds = DummyDataset(train_data, train_health, train_contam)
+        val_ds = DummyDataset(val_data, val_health, val_contam)
+
         train_loader = DataLoader(
             train_ds, batch_size=cfg["batch_size"], shuffle=True,
             num_workers=cfg["num_workers"], pin_memory=True
