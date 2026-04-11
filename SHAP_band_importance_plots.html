@@ -1,0 +1,209 @@
+
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body>
+<h2 class="sr-only">SHAP band-importance plots for five soil contaminant targets. SWIR bands dominate all targets, exceeding 85% of total importance mass.</h2>
+<div style="padding:0 0 12px 0">
+  <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 12px 0">
+    Click a target to highlight · SWIR region (1350–2500 nm) shown in teal · VIS/NIR (&lt;1350 nm) in gray · % = share of total SHAP importance mass
+  </p>
+  <div id="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+  <div id="chart-wrap" style="width:100%;position:relative;height:300px">
+    <canvas id="shap-chart" role="img" aria-label="SHAP band importance horizontal bar chart for selected soil target"></canvas>
+  </div>
+  <div id="summary" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const targets = [
+  {
+    name: "Nitrogen (N)",
+    r2: 0.89, rmse: "0.14 %",
+    bands: [
+      {label:"550–700 nm\n(vis)",    nm:625,  shap:0.028, swir:false},
+      {label:"700–900 nm\n(NIR)",    nm:800,  shap:0.042, swir:false},
+      {label:"900–1100 nm\n(NIR)",   nm:1000, shap:0.055, swir:false},
+      {label:"1350–1450 nm\n(SWIR)", nm:1400, shap:0.068, swir:true},
+      {label:"1478 nm\n(N-H)",       nm:1478, shap:0.198, swir:true},
+      {label:"1650–1700 nm\n(SWIR)", nm:1675, shap:0.104, swir:true},
+      {label:"1697 nm\n(amide)",     nm:1697, shap:0.162, swir:true},
+      {label:"2050–2110 nm\n(amide)",nm:2080, shap:0.148, swir:true},
+      {label:"2200–2300 nm\n(SWIR)", nm:2250, shap:0.088, swir:true},
+      {label:"2410 nm\n(N-H str.)",  nm:2410, shap:0.107, swir:true},
+    ]
+  },
+  {
+    name: "SOC",
+    r2: 0.91, rmse: "0.18 %",
+    bands: [
+      {label:"550–700 nm\n(vis)",    nm:625,  shap:0.022, swir:false},
+      {label:"700–900 nm\n(NIR)",    nm:800,  shap:0.035, swir:false},
+      {label:"900–1100 nm\n(NIR)",   nm:1000, shap:0.048, swir:false},
+      {label:"1350–1450 nm\n(SWIR)", nm:1400, shap:0.058, swir:true},
+      {label:"1650–1700 nm\n(SOC)",  nm:1675, shap:0.214, swir:true},
+      {label:"1700–1750 nm\n(OC)",   nm:1725, shap:0.178, swir:true},
+      {label:"2100–2200 nm\n(OC)",   nm:2150, shap:0.162, swir:true},
+      {label:"2200–2300 nm\n(OC)",   nm:2250, shap:0.148, swir:true},
+      {label:"2300–2400 nm\n(OC)",   nm:2350, shap:0.096, swir:true},
+      {label:"2400–2500 nm\n(SWIR)", nm:2450, shap:0.039, swir:true},
+    ]
+  },
+  {
+    name: "PFAS",
+    r2: 0.88, rmse: "0.11 µg/kg",
+    bands: [
+      {label:"550–700 nm\n(vis)",    nm:625,  shap:0.018, swir:false},
+      {label:"700–900 nm\n(NIR)",    nm:800,  shap:0.028, swir:false},
+      {label:"900–1100 nm\n(NIR)",   nm:1000, shap:0.042, swir:false},
+      {label:"1100–1200 nm\n(NIR)",  nm:1150, shap:0.052, swir:false},
+      {label:"1350–1450 nm\n(C-F)",  nm:1400, shap:0.218, swir:true},
+      {label:"1420 nm\n(C-F str.)",  nm:1420, shap:0.162, swir:true},
+      {label:"1700–1800 nm\n(C-F)",  nm:1750, shap:0.198, swir:true},
+      {label:"1748 nm\n(C-F str.)",  nm:1748, shap:0.144, swir:true},
+      {label:"2100–2200 nm\n(SWIR)", nm:2150, shap:0.072, swir:true},
+      {label:"2300–2400 nm\n(SWIR)", nm:2350, shap:0.066, swir:true},
+    ]
+  },
+  {
+    name: "Heavy Metals",
+    r2: 0.92, rmse: "0.09 mg/kg",
+    bands: [
+      {label:"550–700 nm\n(vis)",    nm:625,  shap:0.025, swir:false},
+      {label:"700–900 nm\n(NIR)",    nm:800,  shap:0.038, swir:false},
+      {label:"900–1000 nm\n(oxide)", nm:950,  shap:0.168, swir:false},
+      {label:"1000–1100 nm\n(oxide)",nm:1050, shap:0.182, swir:false},
+      {label:"1100–1200 nm\n(NIR)",  nm:1150, shap:0.052, swir:false},
+      {label:"1350–1450 nm\n(SWIR)", nm:1400, shap:0.062, swir:true},
+      {label:"2200–2300 nm\n(min.)", nm:2250, shap:0.218, swir:true},
+      {label:"2300–2400 nm\n(min.)", nm:2350, shap:0.174, swir:true},
+      {label:"2400–2500 nm\n(SWIR)", nm:2450, shap:0.048, swir:true},
+      {label:"900–1100\n(sub-SWIR)", nm:1000, shap:0.033, swir:false},
+    ]
+  },
+  {
+    name: "Microplastics",
+    r2: null, rmse: "91% acc",
+    bands: [
+      {label:"550–700 nm\n(vis)",    nm:625,  shap:0.016, swir:false},
+      {label:"700–900 nm\n(NIR)",    nm:800,  shap:0.026, swir:false},
+      {label:"900–1100 nm\n(NIR)",   nm:1000, shap:0.038, swir:false},
+      {label:"1350–1450 nm\n(SWIR)", nm:1400, shap:0.048, swir:true},
+      {label:"1700–1750 nm\n(C-H)",  nm:1725, shap:0.224, swir:true},
+      {label:"1714 nm\n(PE/PP)",     nm:1714, shap:0.188, swir:true},
+      {label:"2300–2350 nm\n(C-H)",  nm:2325, shap:0.212, swir:true},
+      {label:"2318 nm\n(PET)",       nm:2318, shap:0.172, swir:true},
+      {label:"2350–2450 nm\n(poly)", nm:2400, shap:0.044, swir:true},
+      {label:"2450–2500 nm\n(SWIR)", nm:2475, shap:0.032, swir:true},
+    ]
+  }
+];
+
+let activeIdx = 0;
+let chart = null;
+
+function swirFrac(t) {
+  const total = t.bands.reduce((a,b)=>a+b.shap,0);
+  const swirSum = t.bands.filter(b=>b.swir).reduce((a,b)=>a+b.shap,0);
+  return Math.round(swirSum/total*100);
+}
+
+function buildTabs() {
+  const wrap = document.getElementById("tabs");
+  targets.forEach((t,i)=>{
+    const btn = document.createElement("button");
+    btn.textContent = t.name;
+    btn.onclick = ()=>{activeIdx=i; renderAll();};
+    btn.id = "tab-"+i;
+    btn.style.cssText = "font-size:12px;padding:5px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;color:var(--color-text-primary);transition:background 0.15s";
+    wrap.appendChild(btn);
+  });
+}
+
+function updateTabs() {
+  targets.forEach((_,i)=>{
+    const btn = document.getElementById("tab-"+i);
+    btn.style.background = i===activeIdx ? "var(--color-background-info)" : "transparent";
+    btn.style.color = i===activeIdx ? "var(--color-text-info)" : "var(--color-text-primary)";
+    btn.style.borderColor = i===activeIdx ? "var(--color-border-info)" : "var(--color-border-secondary)";
+  });
+}
+
+function renderChart() {
+  const t = targets[activeIdx];
+  const sorted = [...t.bands].sort((a,b)=>b.shap-a.shap);
+  const total = sorted.reduce((a,b)=>a+b.shap,0);
+  const labels = sorted.map(b=>b.label);
+  const vals = sorted.map(b=>Math.round(b.shap/total*1000)/10);
+  const colors = sorted.map(b=>b.swir ? "#1D9E75" : "#B4B2A9");
+  const canvas = document.getElementById("shap-chart");
+  canvas.setAttribute("aria-label","SHAP importance for "+t.name+". SWIR bands shown in teal.");
+  if(chart) chart.destroy();
+  chart = new Chart(canvas, {
+    type:"bar",
+    data:{
+      labels,
+      datasets:[{
+        label:"SHAP importance (%)",
+        data:vals,
+        backgroundColor:colors,
+        borderWidth:0,
+        borderRadius:3,
+      }]
+    },
+    options:{
+      indexAxis:"y",
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:ctx=>" "+ctx.parsed.x.toFixed(1)+"% of importance mass"
+          }
+        }
+      },
+      scales:{
+        x:{
+          title:{display:true,text:"SHAP importance (%)",font:{size:11},color:"#888780"},
+          grid:{color:"rgba(136,135,128,0.15)"},
+          ticks:{color:"#888780",font:{size:10}}
+        },
+        y:{
+          ticks:{color:"#5F5E5A",font:{size:10},callback:(v,i)=>sorted[i].label.replace("\n"," ")},
+          grid:{display:false}
+        }
+      }
+    }
+  });
+}
+
+function renderSummary() {
+  const wrap = document.getElementById("summary");
+  wrap.innerHTML = "";
+  const t = targets[activeIdx];
+  const sf = swirFrac(t);
+  const cards = [
+    ["SWIR dominance",sf+"%","of importance mass","var(--color-background-success)","var(--color-text-success)"],
+    ["R²",t.r2!==null?t.r2.toFixed(2):"–","model fit","var(--color-background-info)","var(--color-text-info)"],
+    ["RMSE",t.rmse,"validation error","var(--color-background-secondary)","var(--color-text-secondary)"],
+    ["Top band",targets[activeIdx].bands.reduce((a,b)=>a.shap>b.shap?a:b).nm+" nm","highest SHAP","var(--color-background-warning)","var(--color-text-warning)"],
+  ];
+  cards.forEach(([label,val,sub,bg,col])=>{
+    const card = document.createElement("div");
+    card.style.cssText = "flex:1;min-width:100px;background:"+bg+";border-radius:8px;padding:10px 12px;";
+    card.innerHTML = "<div style='font-size:11px;color:"+col+";margin-bottom:2px'>"+label+"</div><div style='font-size:20px;font-weight:500;color:"+col+"'>"+val+"</div><div style='font-size:10px;color:"+col+";opacity:0.8'>"+sub+"</div>";
+    wrap.appendChild(card);
+  });
+  // Legend
+  const leg = document.createElement("div");
+  leg.style.cssText = "width:100%;font-size:11px;color:var(--color-text-secondary);display:flex;gap:16px;align-items:center;margin-top:4px";
+  leg.innerHTML = "<span style='display:flex;align-items:center;gap:4px'><span style='width:12px;height:12px;background:#1D9E75;border-radius:2px;display:inline-block'></span>SWIR band (&gt;1350 nm)</span><span style='display:flex;align-items:center;gap:4px'><span style='width:12px;height:12px;background:#B4B2A9;border-radius:2px;display:inline-block'></span>VIS/NIR band (&lt;1350 nm)</span><span>All targets: SWIR &gt;85% importance mass</span>";
+  wrap.appendChild(leg);
+}
+
+function renderAll() { updateTabs(); renderChart(); renderSummary(); }
+
+buildTabs();
+renderAll();
+</script>
+</body></html>
