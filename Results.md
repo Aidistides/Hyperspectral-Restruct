@@ -26,6 +26,12 @@ Tested on mixed bare-soil + vegetation datasets with ground-truth lab validation
 - Microplastics abundance map
 - SHAP band-importance plots (SWIR > 85 % of importance mass for all targets)
 
+
+#### 1. False-color N + SOC map — a dual-channel false-color composite of the Maryland pilot field, with teal–green encoding nitrogen intensity (1478 nm N-H band) and purple overlay showing SOC patches (1650–1700 nm), complete with crop row lines, sample point markers, and per-target R²/RMSE callouts.
+
+![False-color N and SOC map from Maryland commercial farm pilot](./false_color_soil_N_SOC_map.svg)
+
+
 ### Use Highlights 
 - Real-time detection of **agroterrorism signatures** (glyphosate, PFAS spikes, heavy-metal anomalies) in <50 ms.
 - Verifiable soil intelligence for tokenized land valuation, regenerative premiums, and supply-chain provenance.
