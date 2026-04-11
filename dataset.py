@@ -42,8 +42,8 @@ class HyperspectralTransform:
         scipy so behaviour is explicit and band-count agnostic.
 
     ENHANCEMENT 3 — advanced augmentations:
-        Added spectral augmentations, mixup, cutmix, and noise injection
-        for improved robustness and generalization.
+        Added spectral augmentations and noise injection for improved
+        robustness and generalization.
 
         Implemented transforms:
             • Random horizontal / vertical flip
@@ -52,9 +52,12 @@ class HyperspectralTransform:
               — uses scipy.ndimage.map_coordinates directly, exactly as
                 suggested in the original code review.
             • Spectral augmentation (band-wise noise, wavelength shift)
-            • Mixup and CutMix for regularization
             • Gaussian noise and Poisson noise injection
             • Random brightness and contrast adjustment
+            
+    NOTE: Mixup/CutMix are not implemented at the transform level because
+    they require a second sample. Use a custom collate_fn in DataLoader
+    if these augmentations are needed.
     """
 
     def __init__(
@@ -72,9 +75,7 @@ class HyperspectralTransform:
         crop_resize_prob: float = 0.8,
         # advanced augmentation parameters
         spectral_noise_prob: float = 0.2,
-        spectral_shift_range: float = 10.0,  # nm shift
-        mixup_prob: float = 0.3,
-        cutmix_prob: float = 0.2,
+        spectral_shift_range: float = 10.0,  # nm shift (number of bands)
         brightness_prob: float = 0.3,
         contrast_prob: float = 0.3,
         noise_std: float = 0.02,
@@ -82,6 +83,8 @@ class HyperspectralTransform:
         crop_scale: tuple = (0.8, 1.0),
         elastic_alpha: float = 1.0,
         elastic_sigma: float = 50.0,
+        # clipping control (disable for raw reflectance > 1.0, e.g., SWIR bands)
+        clip_range: Optional[Tuple[float, float]] = None,
     ):
         self.target_size = target_size
         self.spec_mask_prob = spec_mask_prob
@@ -97,12 +100,11 @@ class HyperspectralTransform:
         self.elastic_sigma = elastic_sigma
         self.spectral_noise_prob = spectral_noise_prob
         self.spectral_shift_range = spectral_shift_range
-        self.mixup_prob = mixup_prob
-        self.cutmix_prob = cutmix_prob
         self.brightness_prob = brightness_prob
         self.contrast_prob = contrast_prob
         self.noise_std = noise_std
         self.poisson_lambda = poisson_lambda
+        self.clip_range = clip_range
 
     # ── masking (called on RAW cube, before normalisation) ────────────────────
 
@@ -209,11 +211,11 @@ class HyperspectralTransform:
             augmented += noise
 
         # Wavelength shift simulation (sensor calibration drift)
+        # Rolls along band axis by swapping bands, not spatial rolling
         if np.random.rand() < self.spectral_noise_prob:
-            shift_bands = np.random.choice(C, size=max(1, C//4), replace=False)
-            for band_idx in shift_bands:
-                shift = np.random.uniform(-self.spectral_shift_range, self.spectral_shift_range)
-                augmented[band_idx] = np.roll(augmented[band_idx], int(shift), axis=(0, 1))
+            shift = int(np.random.uniform(-self.spectral_shift_range, self.spectral_shift_range))
+            if shift != 0:
+                augmented = np.roll(augmented, shift, axis=0)
 
         return augmented
     
@@ -261,7 +263,9 @@ class HyperspectralTransform:
             mean_val = np.mean(cube, axis=(1, 2), keepdims=True)
             cube = (cube - mean_val) * contrast_factor + mean_val
         
-        return np.clip(cube, 0, 1)
+        if self.clip_range is not None:
+            cube = np.clip(cube, self.clip_range[0], self.clip_range[1])
+        return cube
     
     def noise_injection(self, cube: np.ndarray) -> np.ndarray:
         """Advanced noise injection (Gaussian + Poisson)."""
@@ -279,7 +283,9 @@ class HyperspectralTransform:
             poisson_noise = np.random.poisson(positive_cube * self.poisson_lambda) / self.poisson_lambda - positive_cube
             noisy += poisson_noise
         
-        return np.clip(noisy, 0, 1)
+        if self.clip_range is not None:
+            noisy = np.clip(noisy, self.clip_range[0], self.clip_range[1])
+        return noisy
 
     # ── full pipeline (operates on RAW cube) ──────────────────────────────────
 
@@ -365,6 +371,10 @@ class HyperspectralSoilDataset(Dataset):
         self.quality_threshold = quality_threshold
         
         # Data quality tracking
+        # WARNING: These are mutated in __getitem__ which runs in DataLoader workers.
+        # With num_workers > 1, worker processes have separate memory - mutations
+        # never propagate back to the main process. For accurate quality reports,
+        # run validation in a separate pre-pass before training instead.
         self.data_stats = {}
         self.corrupted_files = []
         self.processed_files = 0
@@ -444,8 +454,10 @@ class HyperspectralSoilDataset(Dataset):
         
         # Check data range
         data_min, data_max = np.min(cube), np.max(cube)
-        if data_max == data_min:  # Flat spectrum
-            print(f"⚠️  Sample {idx}: Flat spectrum (min={data_min:.3f}, max={data_max:.3f})")
+        if data_max == data_min:  # Flat spectrum - unusable for training
+            print(f"❌ Sample {idx}: Flat spectrum (min={data_min:.3f}, max={data_max:.3f}) - rejecting")
+            self.corrupted_files.append(idx)
+            return False
         
         # Check signal-to-noise ratio (simple estimate)
         signal_power = np.mean(cube ** 2)
@@ -472,9 +484,15 @@ class HyperspectralSoilDataset(Dataset):
             return self.data_cache[idx]
         return None
     
-    def _cache_data(self, idx: int, data: np.ndarray) -> None:
-        """Cache data if caching is enabled."""
-        if self.data_cache is not None:
+    def _cache_data(self, idx: int, data: np.ndarray, is_valid: bool = True) -> None:
+        """Cache data if caching is enabled.
+        
+        Args:
+            idx: sample index
+            data: numpy array to cache
+            is_valid: if False, don't cache (prevents caching zero fallbacks)
+        """
+        if self.data_cache is not None and is_valid:
             self.data_cache[idx] = data.copy()
     
     def get_data_quality_report(self) -> dict:
@@ -522,19 +540,21 @@ class HyperspectralSoilDataset(Dataset):
                 cube = np.load(self.data_paths[idx]).astype(np.float32)  # (B, H, W)
             except Exception as e:
                 raise RuntimeError(f"Failed to load data file {self.data_paths[idx]}: {e}")
-            
+
             # Step 3: Validate data quality if enabled
+            is_valid = True
             if self.validate_data:
-                if not self._validate_data_quality(cube, idx):
-                    # Use fallback or raise error based on severity
+                is_valid = self._validate_data_quality(cube, idx)
+                if not is_valid:
+                    # Use fallback for corrupted files (consistent shape)
                     if idx in self.corrupted_files:
                         # Return zeros for corrupted files (consistent shape)
                         cube = np.zeros((self.num_bands, *self.target_size), dtype=np.float32)
                     else:
                         print(f"⚠️  Using sample {idx} despite quality issues")
-            
-            # Step 4: Cache data if enabled
-            self._cache_data(idx, cube)
+
+            # Step 4: Cache data if enabled (only cache valid data, not zero fallbacks)
+            self._cache_data(idx, cube, is_valid=is_valid)
         
         # Step 5: Apply calibration if enabled (before other processing)
         if self.calibrate and self.calibration_pipeline is not None:
