@@ -7,7 +7,7 @@
 
 Drone + Hyperspectral Imaging (HSI) - Remote sensing &amp; verification layer
 
-**Eyes Down. Soil Aalytes.**  
+**Eyes Down. Soil Analytes.**  
 Autonomous hyperspectral remote sensing & AI verification layer for regenerative agriculture and national-security-grade feedstock assurance.
 
 ## Core Capabilities
