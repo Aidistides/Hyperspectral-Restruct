@@ -189,34 +189,51 @@ def create_dataloaders_from_dataset(
     Returns:
         Tuple of (train_loader, val_loader)
     """
-    # Create full dataset
-    full_dataset = HyperspectralSoilDataset(
-        data_dir=data_dir,
-        labels_csv=labels_file,
-        transform=None,  # Will apply separately per split
-        target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"])),
-        num_bands=cfg["num_bands"],
-    )
+    # Load labels first to split before creating datasets
+    import csv
+    paths, labels = [], []
+    with open(labels_file, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            paths.append(row["path"])
+            # Parse health_class and contaminant columns
+            health = int(row["health_class"])
+            contam = [float(row[name]) for name in CONTAMINANT_NAMES]
+            labels.append((health, contam))
     
-    # Split dataset
-    dataset_size = len(full_dataset)
+    # Split data paths and labels
+    dataset_size = len(paths)
     indices = list(range(dataset_size))
     split = int(np.floor(DATA_DEFAULTS["train_val_split"] * dataset_size))
     
     np.random.seed(DATA_DEFAULTS["random_seed"])
     np.random.shuffle(indices)
     
-    train_indices, val_indices = indices[split:], indices[:split]
+    train_indices = indices[split:]
+    val_indices = indices[:split]
     
-    # Create subset datasets with appropriate transforms
-    train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
-    val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
+    # Create separate datasets with their own transforms
+    train_dataset = HyperspectralSoilDataset(
+        data_paths=[paths[i] for i in train_indices],
+        labels=[labels[i] for i in train_indices],
+        num_bands=cfg["num_bands"],
+        target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"])),
+        train=True,
+    )
     
-    # Apply transforms
+    val_dataset = HyperspectralSoilDataset(
+        data_paths=[paths[i] for i in val_indices],
+        labels=[labels[i] for i in val_indices],
+        num_bands=cfg["num_bands"],
+        target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"])),
+        train=False,
+    )
+    
+    # Apply custom transforms if provided (overriding default train/test behavior)
     if train_transform:
-        train_dataset.dataset.transform = train_transform
+        train_dataset.transform = train_transform
     if val_transform:
-        val_dataset.dataset.transform = val_transform
+        val_dataset.transform = val_transform
     
     # Create dataloaders
     train_loader = DataLoader(
@@ -377,16 +394,17 @@ def train(cfg: dict, resume_path: str = None, data_dir: str = None, labels_file:
         ce_criterion = nn.CrossEntropyLoss(label_smoothing=cfg["label_smoothing"])
 
         # Resume from checkpoint if provided
+        # Initialize early stopping variables before training loop
+        patience = cfg.get("patience", 10)  # Early stopping patience from config
+        best_auc = -1.0
+        patience_counter = 0
+        best_epoch = 0
+        start_epoch = 0
+
         if resume_path:
             start_epoch, best_auc = load_checkpoint(resume_path, model, optimizer, scheduler, device)
             patience_counter = 0
             best_epoch = start_epoch - 1
-        else:
-            best_auc = -1.0
-            patience_counter = 0
-            patience = 10  # Early stopping patience
-            best_epoch = 0
-            start_epoch = 0
 
         for epoch in range(start_epoch, cfg["epochs"]):
             model.train()
@@ -481,8 +499,8 @@ def train(cfg: dict, resume_path: str = None, data_dir: str = None, labels_file:
                 print(f"  ↳ no improvement for {patience_counter} epochs")
                 
             # Early stopping
-            if patience_counter >= 10:  # patience
-                print(f"\nEarly stopping triggered after 10 epochs without improvement")
+            if patience_counter >= patience:
+                print(f"\nEarly stopping triggered after {patience} epochs without improvement")
                 print(f"Best model was from epoch {best_epoch} with AUC {best_auc:.4f}")
                 break
 

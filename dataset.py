@@ -5,7 +5,6 @@ import torch
 from torch.utils.data import Dataset
 from scipy.ndimage import zoom, map_coordinates, gaussian_filter
 from pathlib import Path
-import cv2
 from typing import List, Tuple, Optional, Union, Any, Dict
 import warnings
 

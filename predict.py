@@ -19,17 +19,14 @@ from typing import Tuple, Optional
 
 import numpy as np
 import torch
-import yaml
 from scipy.ndimage import zoom
 
-from configs.constants import HEALTH_LABELS, CONTAM_LABELS, MODEL_DEFAULTS
+from configs.constants import HEALTH_LABELS, CONTAM_LABELS, MODEL_DEFAULTS, CONTAMINANT_NAMES
+from utils.common import load_config, load_model_from_checkpoint, get_device
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def load_config(config_path: str = "configs/default.yaml") -> dict:
-    with open(config_path) as f:
-        return yaml.safe_load(f)
 
 
 def load_hdr(hdr_path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -91,27 +88,15 @@ def preprocess_cube(cube: np.ndarray, num_bands: int, target_size: tuple) -> tor
 
 
 def load_model(checkpoint_path: str, cfg: dict, device: torch.device):
-    """Load SoilHSI3DCNN from a .pth checkpoint."""
-    try:
-        from model import SoilHSI3DCNN
-    except ImportError:
-        sys.exit("❌  Cannot import model.py. Run predict.py from the repo root.")
-
-    model = SoilHSI3DCNN(
-        num_bands=cfg["model"]["num_bands"],
+    """Load SoilHSI3DCNN from a .pth checkpoint using centralized loader."""
+    num_bands = cfg.get("model", {}).get("num_bands", MODEL_DEFAULTS["num_bands"])
+    return load_model_from_checkpoint(
+        checkpoint_path=checkpoint_path,
+        device=device,
+        num_bands=num_bands,
         num_classes=len(HEALTH_LABELS),
-        num_contaminants=len(CONTAM_LABELS),
+        num_contaminants=len(CONTAMINANT_NAMES),
     )
-
-    state = torch.load(checkpoint_path, map_location=device)
-    # Support both raw state_dict and wrapped checkpoint dicts
-    if isinstance(state, dict) and "model_state_dict" in state:
-        state = state["model_state_dict"]
-    model.load_state_dict(state)
-    model.to(device)
-    model.eval()
-    print(f"✅ Checkpoint loaded: {checkpoint_path}")
-    return model
 
 
 def run_inference(model, tensor: torch.Tensor, device: torch.device) -> dict:
@@ -203,8 +188,7 @@ def main():
     args = parse_args()
 
     # Device
-    device = torch.device("cpu") if args.cpu or not torch.cuda.is_available() \
-             else torch.device("cuda")
+    device = get_device(prefer_cpu=args.cpu)
     print(f"🖥️  Device: {device}")
 
     # Config

@@ -24,7 +24,6 @@ from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import torch
-import yaml
 from torch.utils.data import DataLoader
 
 from configs.constants import (
@@ -33,68 +32,11 @@ from configs.constants import (
     CONTAM_THRESHOLD,
     MODEL_DEFAULTS,
 )
+from utils.common import load_config, load_model_from_checkpoint, get_device, ensure_dir
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-def load_config(path: str = "configs/default.yaml") -> dict:
-    """
-    Load configuration from YAML file with error handling and validation.
-    
-    Args:
-        path: Path to config file
-        
-    Returns:
-        dict: Configuration dictionary
-        
-    Raises:
-        FileNotFoundError: If config file doesn't exist
-        ValueError: If config is invalid or missing required fields
-    """
-    import os
-    
-    # Check if config file exists
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Configuration file not found: {path}")
-    
-    try:
-        with open(path, 'r') as f:
-            config = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        raise ValueError(f"Error parsing YAML config file {path}: {e}")
-    
-    # Validate config structure
-    if not isinstance(config, dict):
-        raise ValueError(f"Config file must contain a dictionary, got {type(config)}")
-    
-    # Set default values for missing required fields
-    required_fields = {
-        "model": {
-            "num_bands": 200,
-            "target_size": [32, 32]
-        }
-    }
-    
-    def set_defaults(config_dict, defaults):
-        for key, value in defaults.items():
-            if key not in config_dict:
-                config_dict[key] = value
-            elif isinstance(value, dict) and isinstance(config_dict[key], dict):
-                set_defaults(config_dict[key], value)
-    
-    set_defaults(config, required_fields)
-    
-    # Validate specific fields
-    if "model" in config:
-        model_config = config["model"]
-        if "num_bands" in model_config and not isinstance(model_config["num_bands"], int):
-            raise ValueError("model.num_bands must be an integer")
-        if "target_size" in model_config:
-            if not isinstance(model_config["target_size"], (list, tuple)) or len(model_config["target_size"]) != 2:
-                raise ValueError("model.target_size must be a list/tuple of 2 integers")
-    
-    print(f"✅ Loaded configuration from: {path}")
-    return config
 
 
 # ── Data loading ──────────────────────────────────────────────────────────────
@@ -590,67 +532,17 @@ def save_metrics_json(health_metrics: dict, contam_metrics: dict, output_path: s
 def load_model(checkpoint_path: str, device: torch.device, num_bands: int) -> torch.nn.Module:
     """
     Load model from checkpoint with comprehensive error handling.
-    
-    Args:
-        checkpoint_path: Path to checkpoint file
-        device: Device to load model on
-        num_bands: Number of spectral bands
-        
-    Returns:
-        Loaded model
-        
-    Raises:
-        FileNotFoundError: If checkpoint doesn't exist
-        ValueError: If checkpoint is invalid or incompatible
+    Uses centralized loader from utils.common.
     """
-    import os
-    
-    # Validate checkpoint file exists
-    if not os.path.exists(checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
-    
-    try:
-        # Create model
-        model = SoilHSI3DCNN(
-            num_bands=num_bands,
-            num_classes=len(HEALTH_LABELS),
-            num_contaminants=len(CONTAM_NAMES),
-        )
-        
-        # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        
-        # Handle different checkpoint formats
-        if isinstance(checkpoint, dict):
-            if "model_state_dict" in checkpoint:
-                state_dict = checkpoint["model_state_dict"]
-                # Try to load metadata if available
-                if "cfg" in checkpoint:
-                    print(f"📋 Found configuration in checkpoint")
-                if "best_auc" in checkpoint:
-                    print(f"📊 Best AUC in checkpoint: {checkpoint['best_auc']:.4f}")
-            elif "state_dict" in checkpoint:
-                state_dict = checkpoint["state_dict"]
-            else:
-                # Assume the dict itself is the state dict
-                state_dict = checkpoint
-        else:
-            raise ValueError("Checkpoint must be a dictionary")
-        
-        # Load state dict with validation
-        try:
-            model.load_state_dict(state_dict)
-        except Exception as e:
-            raise ValueError(f"Failed to load state dict: {e}")
-        
-        model.to(device)
-        model.eval()
-        
-        print(f"✅ Model loaded successfully from: {checkpoint_path}")
-        return model
-        
-    except Exception as e:
-        raise RuntimeError(f"Error loading model from {checkpoint_path}: {e}")
+    model = load_model_from_checkpoint(
+        checkpoint_path=checkpoint_path,
+        device=device,
+        num_bands=num_bands,
+        num_classes=len(HEALTH_LABELS),
+        num_contaminants=len(CONTAM_NAMES),
+    )
+    print(f"✅ Model loaded successfully from: {checkpoint_path}")
+    return model
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -691,8 +583,7 @@ def main():
     CONTAM_THRESHOLD = args.threshold
 
     # ── Setup ──────────────────────────────────────────────────────────────
-    device = torch.device("cpu") if args.cpu or not torch.cuda.is_available() \
-             else torch.device("cuda")
+    device = get_device(prefer_cpu=args.cpu)
     print(f"🖥️  Device: {device}")
     print(f"📊 Contaminant threshold: {CONTAM_THRESHOLD}")
 
@@ -743,8 +634,7 @@ def main():
 
     # ── Outputs ────────────────────────────────────────────────────────────
     if args.save_plots or args.save_metrics:
-        out = Path(args.output_dir)
-        out.mkdir(parents=True, exist_ok=True)
+        out = ensure_dir(args.output_dir)
         
         if args.save_plots:
             save_confusion_matrix(h_metrics["confusion_matrix"],
