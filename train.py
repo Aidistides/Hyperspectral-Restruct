@@ -1,7 +1,14 @@
+"""
+Training script for SoilHSI3DCNN model.
+
+Supports training from scratch, resuming from checkpoints, and both
+dummy data (for testing) and real HyperspectralSoilDataset loading.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
@@ -13,35 +20,26 @@ import warnings
 import argparse
 import json
 import os
+from pathlib import Path
+from typing import Optional, Tuple, List
 
 from model import SoilHSI3DCNN
-from dataset import HyperspectralSoilDataset 
+from dataset import HyperspectralSoilDataset, HyperspectralTransform
+from configs.constants import (
+    CONTAMINANT_NAMES,
+    MODEL_DEFAULTS,
+    TRAINING_DEFAULTS,
+    DATA_DEFAULTS,
+    DEFAULT_PATHS,
+    get_full_config,
+)
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-CONTAMINANT_NAMES = ["metal", "pfas", "glyphosate", "microplastics"]
-
-CFG = dict(
-    num_bands        = 200,
-    num_classes      = 5,
-    num_contaminants = 4,
-    batch_size       = 16,
-    epochs           = 100,
-    lr               = 3e-4,
-    weight_decay     = 0.05,
-    # FIX 1 — explicit loss weight so CE and BCE scales are independently tunable.
-    # BCE loss is typically smaller in magnitude than CE; start at 0.5 and tune
-    # on a held-out set if one task dominates the gradient.
-    contam_loss_weight = 0.5,
-    label_smoothing  = 0.1,
-    # CosineAnnealingWarmRestarts: first restart after T_0 epochs, then T_0*T_mult, …
-    cosine_T0        = 10,
-    cosine_T_mult    = 2,
-    grad_clip        = 1.0,
-    num_workers      = 8,
-    save_path        = "soil_3dcnn_enotrium.pth",
-)
+# Build default config from centralized constants
+CFG = get_full_config()
+CFG["save_path"] = DEFAULT_PATHS["save_path"]  # Override with specific path
 
 
 # ── Loss helpers ──────────────────────────────────────────────────────────────
@@ -171,8 +169,169 @@ def load_checkpoint(checkpoint_path: str, model: nn.Module, optimizer: torch.opt
         return 0, -1.0
 
 
-def train(cfg: dict, resume_path: str = None):
-    """Main training function with optional resume capability"""
+def create_dataloaders_from_dataset(
+    data_dir: str,
+    labels_file: str,
+    cfg: dict,
+    train_transform=None,
+    val_transform=None,
+) -> Tuple[DataLoader, DataLoader]:
+    """
+    Create train and validation dataloaders from real hyperspectral dataset.
+    
+    Args:
+        data_dir: Directory containing hyperspectral data files
+        labels_file: Path to CSV file with labels
+        cfg: Configuration dictionary
+        train_transform: Augmentation transform for training
+        val_transform: Augmentation transform for validation
+        
+    Returns:
+        Tuple of (train_loader, val_loader)
+    """
+    # Create full dataset
+    full_dataset = HyperspectralSoilDataset(
+        data_dir=data_dir,
+        labels_csv=labels_file,
+        transform=None,  # Will apply separately per split
+        target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"])),
+        num_bands=cfg["num_bands"],
+    )
+    
+    # Split dataset
+    dataset_size = len(full_dataset)
+    indices = list(range(dataset_size))
+    split = int(np.floor(DATA_DEFAULTS["train_val_split"] * dataset_size))
+    
+    np.random.seed(DATA_DEFAULTS["random_seed"])
+    np.random.shuffle(indices)
+    
+    train_indices, val_indices = indices[split:], indices[:split]
+    
+    # Create subset datasets with appropriate transforms
+    train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
+    val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
+    
+    # Apply transforms
+    if train_transform:
+        train_dataset.dataset.transform = train_transform
+    if val_transform:
+        val_dataset.dataset.transform = val_transform
+    
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=True,
+        num_workers=cfg["num_workers"],
+        pin_memory=True,
+        drop_last=True,
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        pin_memory=True,
+    )
+    
+    return train_loader, val_loader
+
+
+class DummyDataset(Dataset):
+    """Simple dataset for testing with synthetic hyperspectral data."""
+    
+    def __init__(
+        self,
+        data: torch.Tensor,
+        health_labels: torch.Tensor,
+        contam_labels: torch.Tensor,
+    ):
+        self.data = data
+        self.health_labels = health_labels
+        self.contam_labels = contam_labels
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return (
+            self.data[idx].unsqueeze(0),  # add channel dim → (1, bands, H, W)
+            self.health_labels[idx],
+            self.contam_labels[idx],
+        )
+
+
+def create_dummy_dataloaders(cfg: dict) -> Tuple[DataLoader, DataLoader]:
+    """
+    Create train and validation dataloaders with synthetic data for testing.
+    
+    Args:
+        cfg: Configuration dictionary
+        
+    Returns:
+        Tuple of (train_loader, val_loader)
+    """
+    print("⚠️  Using dummy data for testing. Replace with real data for production training.")
+    
+    num_samples = 100
+    target_size = cfg.get("target_size", MODEL_DEFAULTS["target_size"])
+    
+    # Create dummy hyperspectral data (samples, bands, H, W)
+    dummy_data = torch.randn(num_samples, cfg["num_bands"], target_size[0], target_size[1])
+    labels = torch.randint(0, cfg["num_classes"], (num_samples,))
+    contaminant_labels = torch.randint(0, 2, (num_samples, cfg["num_contaminants"])).float()
+    
+    # Split data
+    train_indices, val_indices = train_test_split(
+        range(num_samples),
+        test_size=DATA_DEFAULTS["train_val_split"],
+        random_state=DATA_DEFAULTS["random_seed"]
+    )
+    
+    # Create datasets
+    train_ds = DummyDataset(
+        dummy_data[train_indices],
+        labels[train_indices],
+        contaminant_labels[train_indices]
+    )
+    val_ds = DummyDataset(
+        dummy_data[val_indices],
+        labels[val_indices],
+        contaminant_labels[val_indices]
+    )
+    
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=cfg["batch_size"],
+        shuffle=True,
+        num_workers=0,  # Use 0 for dummy data to avoid multiprocessing overhead
+        pin_memory=True,
+    )
+    
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=0,
+        pin_memory=True,
+    )
+    
+    return train_loader, val_loader
+
+
+def train(cfg: dict, resume_path: str = None, data_dir: str = None, labels_file: str = None):
+    """
+    Main training function with optional resume capability.
+    
+    Args:
+        cfg: Configuration dictionary
+        resume_path: Path to checkpoint to resume from (optional)
+        data_dir: Directory containing hyperspectral data (if None, uses dummy data)
+        labels_file: Path to labels CSV file (required if data_dir is provided)
+    """
     try:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Training on: {device}")
@@ -187,55 +346,24 @@ def train(cfg: dict, resume_path: str = None):
             if key not in cfg:
                 raise ValueError(f"Missing required configuration key: {key}")
         
-        # For now, create dummy data - replace with actual data loading
-        print("Warning: Using dummy data - replace with actual data loading")
-        num_samples = 100
-        
-        # Create dummy hyperspectral data (batch_size, bands, height, width)
-        dummy_data = torch.randn(num_samples, cfg["num_bands"], 32, 32)
-        labels = torch.randint(0, cfg["num_classes"], (num_samples,))
-        contaminant_labels = torch.randint(0, 2, (num_samples, cfg["num_contaminants"])).float()
-        
-        # Split data
-        train_indices, val_indices = train_test_split(
-            range(num_samples), test_size=0.2, random_state=42
-        )
-        
-        train_data = dummy_data[train_indices]
-        val_data = dummy_data[val_indices]
-        train_health = labels[train_indices]
-        val_health = labels[val_indices]
-        train_contam = contaminant_labels[train_indices]
-        val_contam = contaminant_labels[val_indices]
-
-        # Create simple dataset class for dummy data
-        class DummyDataset:
-            def __init__(self, data, health_labels, contam_labels):
-                self.data = data
-                self.health_labels = health_labels
-                self.contam_labels = contam_labels
-
-            def __len__(self):
-                return len(self.data)
-
-            def __getitem__(self, idx):
-                return (
-                    self.data[idx].unsqueeze(0),  # add channel dim → (1, bands, H, W)
-                    self.health_labels[idx],
-                    self.contam_labels[idx],
-                )
-
-        train_ds = DummyDataset(train_data, train_health, train_contam)
-        val_ds = DummyDataset(val_data, val_health, val_contam)
-
-        train_loader = DataLoader(
-            train_ds, batch_size=cfg["batch_size"], shuffle=True,
-            num_workers=cfg["num_workers"], pin_memory=True
-        )
-        val_loader = DataLoader(
-            val_ds, batch_size=cfg["batch_size"], shuffle=False,
-            num_workers=cfg["num_workers"], pin_memory=True
-        )
+        # Create dataloaders - real data if paths provided, else dummy data
+        if data_dir and labels_file:
+            print(f"Loading real data from: {data_dir}")
+            train_transform = HyperspectralTransform(
+                target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"]))
+            )
+            val_transform = HyperspectralTransform(
+                target_size=tuple(cfg.get("target_size", MODEL_DEFAULTS["target_size"])),
+                # Disable augmentation for validation
+                flip_prob=0.0,
+                elastic_prob=0.0,
+                crop_resize_prob=0.0,
+            )
+            train_loader, val_loader = create_dataloaders_from_dataset(
+                data_dir, labels_file, cfg, train_transform, val_transform
+            )
+        else:
+            train_loader, val_loader = create_dummy_dataloaders(cfg)
 
         model = SoilHSI3DCNN(
             num_bands=cfg["num_bands"],
@@ -369,7 +497,7 @@ def train(cfg: dict, resume_path: str = None):
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description="Train Hyperspectral Soil Classification Model")
-    parser.add_argument("--config", type=str, help="Path to config JSON file")
+    parser.add_argument("--config", type=str, help="Path to config JSON or YAML file")
     parser.add_argument("--resume", type=str, help="Path to checkpoint to resume from")
     parser.add_argument("--epochs", type=int, help="Number of epochs (overrides config)")
     parser.add_argument("--lr", type=float, help="Learning rate (overrides config)")
@@ -377,16 +505,24 @@ def parse_args():
     parser.add_argument("--save_path", type=str, help="Save path for model (overrides config)")
     parser.add_argument("--calibrate", action="store_true", help="Enable radiometric calibration")
     parser.add_argument("--calib_config", type=str, help="Path to calibration config file")
+    parser.add_argument("--data_dir", type=str, help="Directory containing hyperspectral data (.npy or .hdr files)")
+    parser.add_argument("--labels_file", type=str, help="Path to labels CSV file (required if --data_dir is provided)")
+    parser.add_argument("--use_dummy", action="store_true", help="Use dummy data for testing (ignores data_dir)")
     return parser.parse_args()
 
 
 def load_config(config_path: str) -> dict:
-    """Load configuration from JSON file"""
+    """Load configuration from JSON or YAML file"""
+    import yaml
+    
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Config file not found: {config_path}")
     
     with open(config_path, 'r') as f:
-        config = json.load(f)
+        if config_path.endswith('.yaml') or config_path.endswith('.yml'):
+            config = yaml.safe_load(f)
+        else:
+            config = json.load(f)
     
     return config
 
@@ -427,5 +563,13 @@ if __name__ == "__main__":
         print(f"  {key}: {value}")
     print()
     
+    # Determine data source
+    data_dir = None if args.use_dummy else args.data_dir
+    labels_file = None if args.use_dummy else args.labels_file
+    
+    # Validate data arguments
+    if data_dir and not labels_file:
+        parser.error("--labels_file is required when --data_dir is provided")
+    
     # Start training
-    train(cfg, resume_path=args.resume)
+    train(cfg, resume_path=args.resume, data_dir=data_dir, labels_file=labels_file)

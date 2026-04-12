@@ -15,27 +15,14 @@ Outputs:
 import argparse
 import sys
 from pathlib import Path
+from typing import Tuple, Optional
 
 import numpy as np
 import torch
 import yaml
 from scipy.ndimage import zoom
 
-# ── Label definitions (match your training setup) ─────────────────────────────
-HEALTH_LABELS = {
-    0: "Severely Degraded",
-    1: "Degraded",
-    2: "Moderate",
-    3: "Recovering",
-    4: "Healthy / Remediated",
-}
-
-CONTAM_LABELS = [
-    "Polyethylene (PE)",
-    "Polypropylene (PP)",
-    "PS / PET",
-    "Other Contaminant",
-]
+from configs.constants import HEALTH_LABELS, CONTAM_LABELS, MODEL_DEFAULTS
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

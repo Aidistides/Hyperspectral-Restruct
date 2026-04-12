@@ -1,12 +1,106 @@
+# Default configuration for Hyperspectral-Restruct
+# This file contains all configurable parameters for training and inference
+
+# =============================================================================
+# Model Architecture
+# =============================================================================
 model:
-  num_bands: 200
-  target_size: [64, 64]
+  num_bands: 200              # Number of spectral bands
+  num_classes: 5              # Number of soil health classes
+  num_contaminants: 4         # Number of contaminant types
+  bottleneck_dim: 512         # Bottleneck layer dimension
+  dropout_p: 0.5              # Dropout probability
+  target_size: [64, 64]       # Spatial target size (H, W)
 
+# =============================================================================
+# Training Hyperparameters
+# =============================================================================
 training:
-  lr: 0.0003
-  weight_decay: 0.05
-  epochs: 50
-  batch_size: 16
+  # Optimization
+  lr: 0.0003                  # Learning rate
+  weight_decay: 0.05          # Weight decay for regularization
+  
+  # Training loop
+  epochs: 100                 # Number of training epochs
+  batch_size: 16              # Batch size for training
+  
+  # Loss weights
+  contam_loss_weight: 0.5     # Weight for contaminant BCE loss vs CE loss
+  label_smoothing: 0.1        # Label smoothing for classification
+  
+  # Scheduler (CosineAnnealingWarmRestarts)
+  cosine_T0: 10               # Initial restart period
+  cosine_T_mult: 2            # Multiplier for restart period
+  
+  # Regularization
+  grad_clip: 1.0              # Gradient clipping threshold
+  
+  # Data loading
+  num_workers: 8              # Number of dataloader workers
+  
+  # Early stopping
+  patience: 10                # Epochs without improvement before stopping
 
+# =============================================================================
+# Data Configuration
+# =============================================================================
 data:
-  wavelength_range: [400, 2500]
+  wavelength_range: [400, 2500]  # Wavelength range in nm
+  train_val_split: 0.2           # Fraction for validation
+  random_seed: 42                # Random seed for reproducibility
+
+# =============================================================================
+# Augmentation Parameters
+# =============================================================================
+augmentation:
+  target_size: [64, 64]
+  
+  # Masking
+  spec_mask_prob: 0.6           # Probability of spectral masking
+  spec_mask_max_width: 20         # Max width of spectral mask
+  spat_mask_prob: 0.4           # Probability of spatial masking
+  spat_mask_max_width: 15       # Max width of spatial mask
+  
+  # Geometric
+  flip_prob: 0.5                # Random flip probability
+  elastic_prob: 0.3             # Elastic deformation probability
+  crop_resize_prob: 0.8         # Random crop+resize probability
+  crop_scale: [0.8, 1.0]       # Crop scale range
+  elastic_alpha: 1.0            # Elastic deformation alpha
+  elastic_sigma: 50.0          # Elastic deformation sigma
+  
+  # Spectral
+  spectral_noise_prob: 0.2      # Spectral noise probability
+  spectral_shift_range: 10.0   # Max band shift (number of bands)
+  
+  # Photometric
+  brightness_prob: 0.3          # Brightness adjustment probability
+  contrast_prob: 0.3            # Contrast adjustment probability
+  noise_std: 0.02               # Gaussian noise std dev
+  poisson_lambda: 0.1           # Poisson noise parameter
+
+# =============================================================================
+# Paths
+# =============================================================================
+paths:
+  save_path: "soil_3dcnn_enotrium.pth"
+  checkpoint_dir: "checkpoints/"
+  model_dir: "models/"
+  log_dir: "logs/"
+
+# =============================================================================
+# Label Definitions (for reference)
+# =============================================================================
+labels:
+  health_classes:
+    0: "Severely Degraded"
+    1: "Degraded"
+    2: "Moderate"
+    3: "Recovering"
+    4: "Healthy / Remediated"
+  
+  contaminants:
+    - "metal"
+    - "pfas"
+    - "glyphosate"
+    - "microplastics"

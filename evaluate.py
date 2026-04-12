@@ -20,24 +20,19 @@ import argparse
 import csv
 import sys
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import torch
 import yaml
 from torch.utils.data import DataLoader
 
-# ── Label definitions (must match train.py) ───────────────────────────────────
-HEALTH_LABELS = [
-    "Severely Degraded",
-    "Degraded",
-    "Moderate",
-    "Recovering",
-    "Healthy / Remediated",
-]
-
-CONTAM_NAMES = ["metal", "pfas", "glyphosate", "microplastics"]
-
-CONTAM_THRESHOLD = 0.5   # sigmoid threshold for binary contaminant decision
+from configs.constants import (
+    HEALTH_LABELS,
+    CONTAMINANT_NAMES as CONTAM_NAMES,
+    CONTAM_THRESHOLD,
+    MODEL_DEFAULTS,
+)
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
